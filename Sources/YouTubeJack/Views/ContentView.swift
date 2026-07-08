@@ -6,6 +6,46 @@ struct ContentView: View {
     @AppStorage(AppPreferenceKeys.autoDetectClipboard) private var autoDetectClipboard = true
 
     var body: some View {
+        ZStack(alignment: .leading) {
+            appContent
+
+            if model.isSettingsPanelPresented {
+                SettingsDrawerOverlay(isPresented: $model.isSettingsPanelPresented)
+                    .environmentObject(model)
+                    .transition(.opacity)
+            }
+        }
+        .frame(minWidth: 1160, minHeight: 680)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    model.isSettingsPanelPresented.toggle()
+                } label: {
+                    Label("Ayarlar", systemImage: "sidebar.left")
+                }
+                .help(model.isSettingsPanelPresented ? "Ayarları kapat" : "Ayarları aç")
+            }
+
+            ToolbarItem {
+                Button {
+                    model.toggleQueuePlayback()
+                } label: {
+                    Label(model.queueControlTitle, systemImage: model.queueControlIcon)
+                }
+                .disabled(model.canToggleQueue == false)
+                .help(model.queueControlTitle)
+            }
+        }
+        .animation(.snappy(duration: 0.22), value: model.isSettingsPanelPresented)
+        .onAppear {
+            model.refreshDependencies()
+            if autoDetectClipboard {
+                model.detectClipboardURL()
+            }
+        }
+    }
+
+    private var appContent: some View {
         VStack(spacing: 0) {
             URLInputBar()
                 .padding(.horizontal, 18)
@@ -24,24 +64,6 @@ struct ContentView: View {
                     .frame(width: 440)
                     .frame(maxHeight: .infinity, alignment: .top)
                     .background(.ultraThinMaterial)
-            }
-        }
-        .frame(minWidth: 1160, minHeight: 680)
-        .toolbar {
-            ToolbarItem {
-                Button {
-                    model.toggleQueuePlayback()
-                } label: {
-                    Label(model.queueControlTitle, systemImage: model.queueControlIcon)
-                }
-                .disabled(model.canToggleQueue == false)
-                .help(model.queueControlTitle)
-            }
-        }
-        .onAppear {
-            model.refreshDependencies()
-            if autoDetectClipboard {
-                model.detectClipboardURL()
             }
         }
     }

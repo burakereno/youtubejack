@@ -1,119 +1,334 @@
 import SwiftUI
 import YouTubeJackCore
 
+struct SettingsDrawerOverlay: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Color.black.opacity(0.22)
+                .onTapGesture {
+                    isPresented = false
+                }
+
+            SettingsDrawer(isPresented: $isPresented)
+                .padding(.leading, 16)
+                .padding(.vertical, 16)
+                .transition(.move(edge: .leading).combined(with: .opacity))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
 struct SettingsView: View {
+    @State private var selectedSection: SettingsPanelSection = .general
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Ayarlar")
+                .font(.title2.weight(.semibold))
+
+            SettingsPanelContent(selectedSection: $selectedSection)
+        }
+        .padding(20)
+        .frame(width: 620, height: 420, alignment: .topLeading)
+    }
+}
+
+private enum SettingsPanelSection: String, CaseIterable, Identifiable {
+    case general
+    case tools
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general:
+            return "Genel"
+        case .tools:
+            return "Araçlar"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general:
+            return "gearshape"
+        case .tools:
+            return "wrench.and.screwdriver"
+        }
+    }
+}
+
+private struct SettingsDrawer: View {
+    @Binding var isPresented: Bool
+    @State private var selectedSection: SettingsPanelSection = .general
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Button {
+                    isPresented = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .background(.thinMaterial, in: Circle())
+                .help("Ayarları kapat")
+
+                Text("Ayarlar")
+                    .font(.title2.weight(.semibold))
+
+                Spacer()
+            }
+
+            SettingsPanelContent(selectedSection: $selectedSection)
+        }
+        .padding(20)
+        .frame(width: 430)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.28), radius: 28, x: 10, y: 0)
+    }
+}
+
+private struct SettingsPanelContent: View {
+    @Binding var selectedSection: SettingsPanelSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                ForEach(SettingsPanelSection.allCases) { section in
+                    SettingsPanelTab(
+                        section: section,
+                        isSelected: selectedSection == section
+                    ) {
+                        selectedSection = section
+                    }
+                }
+            }
+
+            Divider()
+
+            ScrollView {
+                Group {
+                    switch selectedSection {
+                    case .general:
+                        GeneralSettingsPane()
+                    case .tools:
+                        ToolsSettingsPane()
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.visible)
+        }
+    }
+}
+
+private struct SettingsPanelTab: View {
+    let section: SettingsPanelSection
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(section.title, systemImage: section.systemImage)
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: 42)
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.orange.opacity(0.95) : Color.secondary.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.orange.opacity(0.45) : Color.primary.opacity(0.08), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct GeneralSettingsPane: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage(AppPreferenceKeys.autoDetectClipboard) private var autoDetectClipboard = true
     @AppStorage(AppPreferenceKeys.defaultQuality) private var defaultQuality = AppPreferenceDefaults.defaultQuality
     @AppStorage(AppPreferenceKeys.defaultContainer) private var defaultContainer = AppPreferenceDefaults.defaultContainer
 
     var body: some View {
-        TabView {
-            Form {
-                Picker("Varsayılan çözünürlük", selection: $defaultQuality) {
-                    ForEach(QualityProfile.allCases) { profile in
-                        Text(profile.title).tag(profile.rawValue)
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsGroup(title: "Varsayılanlar", systemImage: "slider.horizontal.3") {
+                SettingsRow(title: "Çözünürlük") {
+                    Picker("Varsayılan çözünürlük", selection: $defaultQuality) {
+                        ForEach(QualityProfile.allCases) { profile in
+                            Text(profile.title).tag(profile.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 170)
+                    .onChange(of: defaultQuality) { _, newValue in
+                        model.updateSelectedQuality(QualityProfile(rawValue: newValue) ?? .q1080)
                     }
                 }
-                .onChange(of: defaultQuality) { _, newValue in
-                    model.updateSelectedQuality(QualityProfile(rawValue: newValue) ?? .q1080)
-                }
 
-                Picker("Varsayılan format", selection: $defaultContainer) {
-                    ForEach(DownloadContainer.allCases) { container in
-                        Text(container.title).tag(container.rawValue)
+                SettingsRow(title: "Format") {
+                    Picker("Varsayılan format", selection: $defaultContainer) {
+                        ForEach(DownloadContainer.allCases) { container in
+                            Text(container.title).tag(container.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 170)
+                    .onChange(of: defaultContainer) { _, newValue in
+                        model.updateSelectedContainer(DownloadContainer(rawValue: newValue) ?? .mp4)
                     }
                 }
-                .onChange(of: defaultContainer) { _, newValue in
-                    model.updateSelectedContainer(DownloadContainer(rawValue: newValue) ?? .mp4)
-                }
+            }
 
+            Divider()
+
+            SettingsGroup(title: "Davranış", systemImage: "sparkles") {
                 Toggle("Açılışta panoyu kontrol et", isOn: $autoDetectClipboard)
+                    .toggleStyle(.switch)
+            }
 
+            Divider()
+
+            SettingsGroup(title: "İndirme klasörü", systemImage: "folder") {
                 DestinationPickerView()
             }
-            .padding(20)
-            .tabItem {
-                Label("Genel", systemImage: "gearshape")
-            }
-
-            DependencyStatusView()
-                .padding(20)
-                .tabItem {
-                    Label("Araçlar", systemImage: "wrench.and.screwdriver")
-                }
         }
-        .frame(width: 620, height: 420)
     }
 }
 
-private struct DependencyStatusView: View {
+private struct ToolsSettingsPane: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var updater = UpdateChecker.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DependencyRow(name: "yt-dlp", tool: model.dependencyStatus.ytdlp, required: true)
-            DependencyRow(name: "ffmpeg", tool: model.dependencyStatus.ffmpeg, required: false)
-            DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: false)
-
-            Divider()
-
-            AppUpdateSection()
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("yt-dlp güncelleme")
-                            .font(.headline)
-                        Text(updateDetail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if model.isUpdatingYTDLP {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-
-                    Button {
-                        Task { await model.checkYTDLPUpdate() }
-                    } label: {
-                        Label("Kontrol Et", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(model.isUpdatingYTDLP)
-
-                    Button {
-                        Task { await model.updateYTDLP() }
-                    } label: {
-                        Label("Güncelle", systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(model.isUpdatingYTDLP)
-                }
-
-                if let message = model.ytdlpUpdateMessage {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsGroup(title: "Araç durumu", systemImage: "checkmark.seal") {
+                DependencyRow(name: "yt-dlp", tool: model.dependencyStatus.ytdlp, required: true)
+                DependencyRow(name: "ffmpeg", tool: model.dependencyStatus.ffmpeg, required: false)
+                DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: false)
             }
 
-            Spacer()
+            Divider()
+
+            SettingsGroup(title: "YouTubeJack", systemImage: "app.badge") {
+                AppUpdateSection()
+            }
+
+            Divider()
+
+            SettingsGroup(title: "yt-dlp", systemImage: "square.and.arrow.down") {
+                YTDLPUpdateSection()
+            }
 
             Button {
                 model.refreshDependencies()
             } label: {
-                Label("Yenile", systemImage: "arrow.clockwise")
+                Label("Araçları yenile", systemImage: "arrow.clockwise")
             }
         }
         .onAppear {
             Task {
                 await updater.checkForUpdates(force: true)
                 await model.checkYTDLPUpdate()
+            }
+        }
+    }
+}
+
+private struct SettingsGroup<Content: View>: View {
+    let title: String
+    let systemImage: String
+    let content: Content
+
+    init(title: String, systemImage: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.systemImage = systemImage
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            content
+        }
+    }
+}
+
+private struct SettingsRow<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.callout.weight(.semibold))
+
+            Spacer()
+
+            content
+        }
+    }
+}
+
+private struct YTDLPUpdateSection: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(updateDetail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button {
+                    Task { await model.checkYTDLPUpdate() }
+                } label: {
+                    Label("Kontrol Et", systemImage: "arrow.clockwise")
+                }
+                .disabled(model.isUpdatingYTDLP)
+
+                Button {
+                    Task { await model.updateYTDLP() }
+                } label: {
+                    Label("Güncelle", systemImage: "square.and.arrow.down")
+                }
+                .disabled(model.isUpdatingYTDLP)
+
+                if model.isUpdatingYTDLP {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+
+            if let message = model.ytdlpUpdateMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
             }
         }
     }
@@ -129,18 +344,12 @@ private struct AppUpdateSection: View {
     @ObservedObject private var updater = UpdateChecker.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Kurulu: \(updater.currentVersion)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("YouTubeJack güncelleme")
-                        .font(.headline)
-                    Text("Kurulu: \(updater.currentVersion)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
                 if updater.updateAvailable, let latest = updater.latestVersion {
                     UpdateButton(version: latest)
                 } else {
@@ -155,6 +364,11 @@ private struct AppUpdateSection: View {
                     }
                     .disabled(updater.isChecking)
                 }
+
+                if updater.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                }
             }
 
             updateStatus
@@ -163,11 +377,7 @@ private struct AppUpdateSection: View {
 
     @ViewBuilder
     private var updateStatus: some View {
-        if updater.isChecking {
-            Text("Uygulama güncellemesi kontrol ediliyor...")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else if updater.isDownloading {
+        if updater.isDownloading {
             ProgressView(value: updater.downloadProgress)
         } else if updater.updateAvailable, let latest = updater.latestVersion {
             Text("Yeni sürüm hazır: \(latest)")
@@ -177,7 +387,7 @@ private struct AppUpdateSection: View {
             Text("Güncelleme kontrolü başarısız: \(error)")
                 .font(.caption)
                 .foregroundStyle(.red)
-                .lineLimit(2)
+                .lineLimit(3)
         } else if updater.isUpToDate && updater.lastCheckCompletedAt != nil {
             Text("YouTubeJack güncel.")
                 .font(.caption)

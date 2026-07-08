@@ -24,6 +24,13 @@ struct YouTubeJackApp: App {
                 .environmentObject(model)
         }
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Ayarlar...") {
+                    model.isSettingsPanelPresented = true
+                }
+                .keyboardShortcut(",", modifiers: [.command])
+            }
+
             CommandMenu("İndirme") {
                 Button("Linki Analiz Et") {
                     Task { await model.analyzeCurrentURL() }
@@ -46,11 +53,6 @@ struct YouTubeJackApp: App {
                     model.clearFinished()
                 }
             }
-        }
-
-        Settings {
-            SettingsView()
-                .environmentObject(model)
         }
     }
 }

@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var ytdlpLatestVersion: String?
     @Published var ytdlpUpdateMessage: String?
     @Published var isUpdatingYTDLP = false
+    @Published var isSettingsPanelPresented = false
 
     private let parser = YouTubeURLParser()
     private let dependencyResolver: DependencyResolver
