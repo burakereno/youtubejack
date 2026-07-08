@@ -107,18 +107,19 @@ private struct SettingsPanelContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+            Picker("Ayar bölümü", selection: $selectedSection) {
                 ForEach(SettingsPanelSection.allCases) { section in
-                    SettingsPanelTab(
-                        section: section,
-                        isSelected: selectedSection == section
-                    ) {
-                        selectedSection = section
-                    }
+                    Label(section.title, systemImage: section.systemImage)
+                        .tag(section)
                 }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.large)
+            .tint(.orange)
+            .frame(width: contentWidth)
 
-            Divider()
+            SettingsDivider(width: contentWidth)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -136,32 +137,6 @@ private struct SettingsPanelContent: View {
             .scrollIndicators(.visible)
         }
         .frame(width: contentWidth, alignment: .topLeading)
-    }
-}
-
-private struct SettingsPanelTab: View {
-    let section: SettingsPanelSection
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(section.title, systemImage: section.systemImage)
-                .font(.callout.weight(.semibold))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .frame(height: 42)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? Color.orange.opacity(0.95) : Color.secondary.opacity(0.12))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.orange.opacity(0.45) : Color.primary.opacity(0.08), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -188,7 +163,7 @@ private struct GeneralSettingsPane: View {
                 }
             }
 
-            Divider()
+            SettingsDivider(width: contentWidth)
 
             SettingsGroup(title: "Davranış", systemImage: "sparkles", contentWidth: contentWidth) {
                 SettingsRow(title: "Açılışta panoyu kontrol et", contentWidth: contentWidth) {
@@ -198,7 +173,7 @@ private struct GeneralSettingsPane: View {
                 }
             }
 
-            Divider()
+            SettingsDivider(width: contentWidth)
 
             SettingsGroup(title: "İndirme klasörü", systemImage: "folder", contentWidth: contentWidth) {
                 DestinationPickerView()
@@ -206,6 +181,16 @@ private struct GeneralSettingsPane: View {
             }
         }
         .frame(width: contentWidth, alignment: .topLeading)
+    }
+}
+
+private struct SettingsDivider: View {
+    let width: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.14))
+            .frame(width: width, height: 1)
     }
 }
 
@@ -222,13 +207,13 @@ private struct ToolsSettingsPane: View {
                 DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: false)
             }
 
-            Divider()
+            SettingsDivider(width: contentWidth)
 
             SettingsGroup(title: "YouTubeJack", systemImage: "app.badge", contentWidth: contentWidth) {
                 AppUpdateSection()
             }
 
-            Divider()
+            SettingsDivider(width: contentWidth)
 
             SettingsGroup(title: "yt-dlp", systemImage: "square.and.arrow.down", contentWidth: contentWidth) {
                 YTDLPUpdateSection()
@@ -334,6 +319,7 @@ private struct DefaultQualityMenu: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.black.opacity(0.42))
             )
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         .fixedSize()
@@ -390,6 +376,7 @@ private struct DefaultContainerSegmentedControl: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(isSelected(container) ? Color.orange : Color.clear)
                         )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
