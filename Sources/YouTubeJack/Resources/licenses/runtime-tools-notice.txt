@@ -1,0 +1,13 @@
+YouTubeJack bundles command-line runtime tools so users do not need Homebrew.
+
+yt-dlp:
+- Source: https://github.com/yt-dlp/yt-dlp
+- Bundled from the official macOS release asset.
+- The app can install newer yt-dlp releases into Application Support/YouTubeJack/bin.
+
+FFmpeg:
+- Source project: https://ffmpeg.org/
+- macOS binary build provider used by the development packaging script:
+  https://ffmpeg.martin-riedl.de/
+- Current development build is a GPL-enabled FFmpeg build. Review and satisfy
+  FFmpeg/GPL license obligations before public distribution.

@@ -1,0 +1,198 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Validate Signing Secrets
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          missing=0
+          for name in \
+            MACOS_CERTIFICATE_P12_BASE64 \
+            MACOS_CERTIFICATE_PASSWORD \
+            KEYCHAIN_PASSWORD \
+            APPLE_ID \
+            APPLE_TEAM_ID \
+            APPLE_APP_SPECIFIC_PASSWORD
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Developer ID signing and notarization secrets are required before publishing a release."
+            exit 1
+          fi
+
+      - name: Import Developer ID Certificate
+        id: signing
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          SIGNING_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk '/Developer ID Application/ { print $2; exit }')"
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            echo "::error::No Developer ID Application identity found in imported certificate."
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+            exit 1
+          fi
+          echo "identity=$SIGNING_IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Auto Version
+        id: version
+        run: |
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            NEW_VERSION="v0.1.0"
+          else
+            VERSION=${LATEST#v}
+            MAJOR=$(echo "$VERSION" | cut -d. -f1)
+            MINOR=$(echo "$VERSION" | cut -d. -f2)
+            PATCH=$(echo "$VERSION" | cut -d. -f3)
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          SHORT_VERSION="${NEW_VERSION#v}"
+          BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_version=$SHORT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+
+      - name: Build App Bundle
+        run: |
+          APP_VERSION="${{ steps.version.outputs.short_version }}" \
+          APP_BUILD_NUMBER="${{ steps.version.outputs.build_number }}" \
+          BUNDLE_IDENTIFIER="dev.local.YouTubeJack" \
+          CODESIGN_IDENTITY="${{ steps.signing.outputs.identity }}" \
+          ./scripts/build-app.sh
+
+      - name: Verify Built App Version
+        run: |
+          BUILT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ".build/YouTubeJack.app/Contents/Info.plist")
+          EXPECTED="${{ steps.version.outputs.short_version }}"
+          if [ "$BUILT" != "$EXPECTED" ]; then
+            echo "::error::Built app reports $BUILT but expected $EXPECTED"
+            exit 1
+          fi
+          test -x ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp"
+          test -x ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
+          codesign --verify --deep --strict --verbose=2 ".build/YouTubeJack.app"
+          SIGNING_DETAILS="$(codesign -dv --verbose=4 ".build/YouTubeJack.app" 2>&1)"
+          echo "$SIGNING_DETAILS"
+          if echo "$SIGNING_DETAILS" | grep -q "Signature=adhoc"; then
+            echo "::error::Release app is ad-hoc signed; expected Developer ID."
+            exit 1
+          fi
+          if ! echo "$SIGNING_DETAILS" | grep -q "Authority=Developer ID Application"; then
+            echo "::error::Release app is not signed with a Developer ID Application certificate."
+            exit 1
+          fi
+          if ! echo "$SIGNING_DETAILS" | grep -q "runtime"; then
+            echo "::error::Release app is missing hardened runtime."
+            exit 1
+          fi
+          echo "Built app version $BUILT matches tag"
+
+      - name: Notarize App
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          ditto -c -k --keepParent ".build/YouTubeJack.app" YouTubeJack.zip
+          xcrun notarytool submit YouTubeJack.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait
+          xcrun stapler staple ".build/YouTubeJack.app"
+          xcrun stapler validate ".build/YouTubeJack.app"
+
+      - name: Create DMG
+        run: |
+          ./scripts/create-dmg.sh ".build/YouTubeJack.app" YouTubeJack.dmg
+          codesign --force --sign "${{ steps.signing.outputs.identity }}" --timestamp YouTubeJack.dmg
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun notarytool submit YouTubeJack.dmg \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait
+          xcrun stapler staple YouTubeJack.dmg
+          xcrun stapler validate YouTubeJack.dmg
+
+      - name: Create Tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          files: YouTubeJack.dmg
+          body: |
+            ## YouTubeJack ${{ steps.version.outputs.version }}
+
+            ### Installation
+            1. Download **YouTubeJack.dmg** below
+            2. Open DMG and drag **YouTubeJack.app** to Applications
+            3. Launch YouTubeJack from Applications
+
+            ### Requirements
+            - macOS 14.0 or later
+            - Internet access for YouTube metadata and downloads

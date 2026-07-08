@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+dist/
+DerivedData/
+*.dmg
+*.zip
+*.xcuserdata/
+*.xcuserstate
+Sources/YouTubeJack/Resources/bin/yt-dlp
+Sources/YouTubeJack/Resources/bin/ffmpeg
