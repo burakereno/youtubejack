@@ -62,6 +62,12 @@ swift test
 open ".build/YouTubeJack.app"
 ```
 
+For a local Developer ID signed DMG:
+
+```bash
+./scripts/build-signed-dmg.sh
+```
+
 `scripts/build-app.sh` prepares bundled runtime tools before staging the `.app` bundle. At runtime YouTubeJack resolves tools in this order:
 
 1. `~/Library/Application Support/YouTubeJack/bin`

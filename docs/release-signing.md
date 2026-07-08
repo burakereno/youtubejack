@@ -30,3 +30,21 @@ Create an app-specific password for the Apple ID used by the Developer account, 
 - `APPLE_APP_SPECIFIC_PASSWORD`: app-specific password
 
 The release workflow signs the app with hardened runtime, notarizes and staples the app, creates the DMG, signs the DMG, notarizes and staples the DMG, then publishes the release asset.
+
+## Local Signed DMG
+
+If a **Developer ID Application** certificate is installed in Keychain, build a locally signed DMG with:
+
+```bash
+./scripts/build-signed-dmg.sh
+```
+
+The script:
+
+1. Builds `YouTubeJack.app`
+2. Signs bundled runtime executables such as `yt-dlp` and `ffmpeg`
+3. Signs the app bundle with hardened runtime
+4. Creates the drag-to-Applications DMG
+5. Signs and verifies the DMG
+
+Notarization still requires Apple notarization credentials. GitHub Actions handles notarization when the repository secrets above are configured.

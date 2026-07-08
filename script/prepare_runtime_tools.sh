@@ -5,12 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$ROOT_DIR/Sources/YouTubeJack/Resources/bin"
 LICENSE_DIR="$ROOT_DIR/Sources/YouTubeJack/Resources/licenses"
 FORCE="${YOUTUBEJACK_FORCE_RUNTIME:-0}"
-TMP_DIRS=()
+TMP_DIRS=""
 
 cleanup() {
-  for dir in "${TMP_DIRS[@]}"; do
-    rm -rf "$dir"
-  done
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] && rm -rf "$dir"
+  done <<< "$TMP_DIRS"
+  return 0
 }
 trap cleanup EXIT
 
@@ -19,7 +20,7 @@ mkdir -p "$BIN_DIR" "$LICENSE_DIR"
 make_tmp_dir() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
-  TMP_DIRS+=("$tmp_dir")
+  TMP_DIRS="${TMP_DIRS}${tmp_dir}"$'\n'
   printf '%s\n' "$tmp_dir"
 }
 

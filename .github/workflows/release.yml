@@ -122,6 +122,8 @@ jobs:
           fi
           test -x ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp"
           test -x ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
+          codesign --verify --strict --verbose=2 ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp"
+          codesign --verify --strict --verbose=2 ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
           codesign --verify --deep --strict --verbose=2 ".build/YouTubeJack.app"
           SIGNING_DETAILS="$(codesign -dv --verbose=4 ".build/YouTubeJack.app" 2>&1)"
           echo "$SIGNING_DETAILS"
@@ -137,6 +139,21 @@ jobs:
             echo "::error::Release app is missing hardened runtime."
             exit 1
           fi
+          for nested in \
+            ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp" \
+            ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
+          do
+            NESTED_DETAILS="$(codesign -dv --verbose=4 "$nested" 2>&1)"
+            echo "$NESTED_DETAILS"
+            if echo "$NESTED_DETAILS" | grep -q "Signature=adhoc"; then
+              echo "::error::$nested is ad-hoc signed; expected Developer ID."
+              exit 1
+            fi
+            if ! echo "$NESTED_DETAILS" | grep -q "Authority=Developer ID Application"; then
+              echo "::error::$nested is not signed with a Developer ID Application certificate."
+              exit 1
+            fi
+          done
           echo "Built app version $BUILT matches tag"
 
       - name: Notarize App

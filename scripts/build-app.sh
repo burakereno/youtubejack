@@ -9,10 +9,19 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 APP_RESOURCES="$ROOT_DIR/Sources/YouTubeJack/Resources"
 APP_ICON="$APP_RESOURCES/AppIcon.icns"
-CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 MIN_MACOS_VERSION="${MIN_MACOS_VERSION:-14.0}"
 
 cd "$ROOT_DIR"
+
+default_codesign_identity() {
+  /usr/bin/security find-identity -v -p codesigning 2>/dev/null \
+    | /usr/bin/awk '/Developer ID Application/ { print $2; exit }'
+}
+
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-$(default_codesign_identity)}"
+if [[ -z "$CODESIGN_IDENTITY" ]]; then
+  CODESIGN_IDENTITY="-"
+fi
 
 REMOTE_LATEST_TAG="$(git ls-remote --tags --refs origin 'v*' 2>/dev/null | awk '{ sub("refs/tags/", "", $2); print $2 }' | sort -Vr | head -1 || true)"
 LOCAL_LATEST_TAG="$(git tag -l 'v*' --sort=-v:refname | head -1)"
@@ -83,10 +92,18 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
-CODESIGN_ARGS=(--force --deep --options runtime --sign "$CODESIGN_IDENTITY")
+signing_common_args=(--force --options runtime --sign "$CODESIGN_IDENTITY")
 if [[ "$CODESIGN_IDENTITY" != "-" ]]; then
-  CODESIGN_ARGS+=(--timestamp)
+  signing_common_args+=(--timestamp)
 fi
-/usr/bin/codesign "${CODESIGN_ARGS[@]}" "$APP_DIR" >/dev/null
+
+if [[ -d "$RESOURCES_DIR/bin" ]]; then
+  while IFS= read -r executable; do
+    /usr/bin/codesign "${signing_common_args[@]}" "$executable" >/dev/null
+  done < <(/usr/bin/find "$RESOURCES_DIR/bin" -type f -perm -111)
+fi
+
+/usr/bin/codesign "${signing_common_args[@]}" --deep "$APP_DIR" >/dev/null
 
 echo "Built $APP_DIR"
+echo "Signed with $CODESIGN_IDENTITY"
