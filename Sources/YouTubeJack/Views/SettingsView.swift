@@ -6,7 +6,7 @@ struct SettingsDrawerOverlay: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            Color.black.opacity(0.22)
+            Color.black.opacity(isPresented ? 0.22 : 0)
                 .onTapGesture {
                     isPresented = false
                 }
@@ -14,7 +14,8 @@ struct SettingsDrawerOverlay: View {
             SettingsDrawer(isPresented: $isPresented)
                 .padding(.leading, 16)
                 .padding(.vertical, 16)
-                .transition(.move(edge: .leading).combined(with: .opacity))
+                .offset(x: isPresented ? 0 : -480)
+                .opacity(isPresented ? 1 : 0.96)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -199,8 +200,11 @@ private struct GeneralSettingsPane: View {
             Divider()
 
             SettingsGroup(title: "Davranış", systemImage: "sparkles") {
-                Toggle("Açılışta panoyu kontrol et", isOn: $autoDetectClipboard)
-                    .toggleStyle(.switch)
+                SettingsRow(title: "Açılışta panoyu kontrol et") {
+                    Toggle("Açılışta panoyu kontrol et", isOn: $autoDetectClipboard)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
             }
 
             Divider()
@@ -270,6 +274,7 @@ private struct SettingsGroup<Content: View>: View {
 
             content
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -286,11 +291,13 @@ private struct SettingsRow<Content: View>: View {
         HStack(spacing: 12) {
             Text(title)
                 .font(.callout.weight(.semibold))
+                .lineLimit(1)
 
             Spacer()
 
             content
         }
+        .frame(maxWidth: .infinity)
     }
 }
 

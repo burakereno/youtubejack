@@ -9,17 +9,16 @@ struct ContentView: View {
         ZStack(alignment: .leading) {
             appContent
 
-            if model.isSettingsPanelPresented {
-                SettingsDrawerOverlay(isPresented: $model.isSettingsPanelPresented)
-                    .environmentObject(model)
-                    .transition(.opacity)
-            }
+            SettingsDrawerOverlay(isPresented: $model.isSettingsPanelPresented)
+                .environmentObject(model)
+                .allowsHitTesting(model.isSettingsPanelPresented)
+                .zIndex(1)
         }
         .frame(minWidth: 1160, minHeight: 680)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
-                    model.isSettingsPanelPresented.toggle()
+                    model.toggleSettingsPanel()
                 } label: {
                     Label("Ayarlar", systemImage: "sidebar.left")
                 }
@@ -36,7 +35,7 @@ struct ContentView: View {
                 .help(model.queueControlTitle)
             }
         }
-        .animation(.snappy(duration: 0.22), value: model.isSettingsPanelPresented)
+        .animation(.smooth(duration: 0.32), value: model.isSettingsPanelPresented)
         .onAppear {
             model.refreshDependencies()
             if autoDetectClipboard {

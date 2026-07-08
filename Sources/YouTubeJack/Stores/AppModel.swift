@@ -181,6 +181,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func presentSettingsPanel() {
+        clearKeyboardFocus()
+        isSettingsPanelPresented = true
+    }
+
+    func toggleSettingsPanel() {
+        if isSettingsPanelPresented {
+            isSettingsPanelPresented = false
+        } else {
+            presentSettingsPanel()
+        }
+    }
+
+    private func clearKeyboardFocus() {
+        NSApp.keyWindow?.makeFirstResponder(nil)
+    }
+
     func detectClipboardURL() {
         guard let value = NSPasteboard.general.string(forType: .string), parser.parse(value) != nil else {
             return

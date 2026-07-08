@@ -26,7 +26,7 @@ struct YouTubeJackApp: App {
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Ayarlar...") {
-                    model.isSettingsPanelPresented = true
+                    model.presentSettingsPanel()
                 }
                 .keyboardShortcut(",", modifiers: [.command])
             }
