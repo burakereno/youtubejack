@@ -118,7 +118,7 @@ private struct SettingsPanelContent: View {
             Divider()
 
             ScrollView {
-                Group {
+                VStack(alignment: .leading, spacing: 0) {
                     switch selectedSection {
                     case .general:
                         GeneralSettingsPane()
@@ -129,8 +129,10 @@ private struct SettingsPanelContent: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.bottom, 8)
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .scrollIndicators(.visible)
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
@@ -213,6 +215,7 @@ private struct GeneralSettingsPane: View {
                 DestinationPickerView()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
@@ -246,6 +249,7 @@ private struct ToolsSettingsPane: View {
                 Label("Araçları yenile", systemImage: "arrow.clockwise")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear {
             Task {
                 await updater.checkForUpdates(force: true)
@@ -273,6 +277,7 @@ private struct SettingsGroup<Content: View>: View {
                 .foregroundStyle(.secondary)
 
             content
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -296,8 +301,9 @@ private struct SettingsRow<Content: View>: View {
             Spacer()
 
             content
+                .frame(minWidth: 190, alignment: .trailing)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
