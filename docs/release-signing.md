@@ -13,6 +13,14 @@ YouTubeJack release builds are Developer ID signed and notarized in GitHub Actio
 
 Create or download a **Developer ID Application** certificate from Apple Developer, install it in Keychain Access, then export the certificate and private key as a `.p12` file.
 
+If the `.p12` export already exists at `/Users/burakerenoglu/Desktop/Certificates.p12`, configure the GitHub secrets with:
+
+```bash
+./scripts/configure-release-secrets.sh
+```
+
+The script prompts locally for the `.p12` export password, Apple ID email, and Apple app-specific password. It validates that the `.p12` contains a **Developer ID Application** identity before writing secrets to GitHub.
+
 Convert the `.p12` for GitHub:
 
 ```bash
