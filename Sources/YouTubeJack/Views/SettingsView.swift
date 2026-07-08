@@ -176,28 +176,13 @@ private struct GeneralSettingsPane: View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsGroup(title: "Varsayılanlar", systemImage: "slider.horizontal.3", contentWidth: contentWidth) {
                 SettingsRow(title: "Çözünürlük", contentWidth: contentWidth) {
-                    Picker("Varsayılan çözünürlük", selection: $defaultQuality) {
-                        ForEach(QualityProfile.allCases) { profile in
-                            Text(profile.title).tag(profile.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 170)
-                    .onChange(of: defaultQuality) { _, newValue in
+                    DefaultQualityMenu(selection: $defaultQuality) { newValue in
                         model.updateSelectedQuality(QualityProfile(rawValue: newValue) ?? .q1080)
                     }
                 }
 
                 SettingsRow(title: "Format", contentWidth: contentWidth) {
-                    Picker("Varsayılan format", selection: $defaultContainer) {
-                        ForEach(DownloadContainer.allCases) { container in
-                            Text(container.title).tag(container.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 170)
-                    .onChange(of: defaultContainer) { _, newValue in
+                    DefaultContainerSegmentedControl(selection: $defaultContainer) { newValue in
                         model.updateSelectedContainer(DownloadContainer(rawValue: newValue) ?? .mp4)
                     }
                 }
@@ -295,6 +280,8 @@ private struct SettingsRow<Content: View>: View {
     let title: String
     let contentWidth: CGFloat
     let content: Content
+    private let controlWidth: CGFloat = 190
+    private let columnSpacing: CGFloat = 12
 
     init(title: String, contentWidth: CGFloat, @ViewBuilder content: () -> Content) {
         self.title = title
@@ -303,17 +290,121 @@ private struct SettingsRow<Content: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: columnSpacing) {
             Text(title)
                 .font(.callout.weight(.semibold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(width: contentWidth - controlWidth - columnSpacing, alignment: .leading)
 
-            Spacer()
-
-            content
-                .frame(minWidth: 190, alignment: .trailing)
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                content
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .frame(width: controlWidth, alignment: .trailing)
         }
         .frame(width: contentWidth, alignment: .leading)
+    }
+}
+
+private struct DefaultQualityMenu: View {
+    @Binding var selection: String
+    let onChange: (String) -> Void
+    @State private var isShowingOptions = false
+
+    var body: some View {
+        Button {
+            isShowingOptions.toggle()
+        } label: {
+            HStack(spacing: 10) {
+                Text(selectedTitle)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.callout.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .frame(width: 170, height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.42))
+            )
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .popover(isPresented: $isShowingOptions, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(QualityProfile.allCases) { profile in
+                    Button {
+                        selection = profile.rawValue
+                        onChange(profile.rawValue)
+                        isShowingOptions = false
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(profile.title)
+                                .lineLimit(1)
+                            Spacer()
+                            if profile.rawValue == selection {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(width: 170, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+        }
+    }
+
+    private var selectedTitle: String {
+        QualityProfile(rawValue: selection)?.title ?? QualityProfile.best.title
+    }
+}
+
+private struct DefaultContainerSegmentedControl: View {
+    @Binding var selection: String
+    let onChange: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(DownloadContainer.allCases) { container in
+                Button {
+                    selection = container.rawValue
+                    onChange(container.rawValue)
+                } label: {
+                    Text(container.title)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .foregroundStyle(isSelected(container) ? .white : .primary)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isSelected(container) ? Color.orange : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(width: 170, height: 34)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.black.opacity(0.42))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .fixedSize()
+    }
+
+    private func isSelected(_ container: DownloadContainer) -> Bool {
+        selection == container.rawValue
     }
 }
 
