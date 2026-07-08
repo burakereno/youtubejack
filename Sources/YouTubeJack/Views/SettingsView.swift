@@ -23,13 +23,14 @@ struct SettingsDrawerOverlay: View {
 
 struct SettingsView: View {
     @State private var selectedSection: SettingsPanelSection = .general
+    private let contentWidth: CGFloat = 580
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Ayarlar")
                 .font(.title2.weight(.semibold))
 
-            SettingsPanelContent(selectedSection: $selectedSection)
+            SettingsPanelContent(selectedSection: $selectedSection, contentWidth: contentWidth)
         }
         .padding(20)
         .frame(width: 620, height: 420, alignment: .topLeading)
@@ -64,6 +65,7 @@ private enum SettingsPanelSection: String, CaseIterable, Identifiable {
 private struct SettingsDrawer: View {
     @Binding var isPresented: Bool
     @State private var selectedSection: SettingsPanelSection = .general
+    private let contentWidth: CGFloat = 390
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -85,7 +87,7 @@ private struct SettingsDrawer: View {
                 Spacer()
             }
 
-            SettingsPanelContent(selectedSection: $selectedSection)
+            SettingsPanelContent(selectedSection: $selectedSection, contentWidth: contentWidth)
         }
         .padding(20)
         .frame(width: 430)
@@ -101,6 +103,7 @@ private struct SettingsDrawer: View {
 
 private struct SettingsPanelContent: View {
     @Binding var selectedSection: SettingsPanelSection
+    let contentWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -121,18 +124,18 @@ private struct SettingsPanelContent: View {
                 VStack(alignment: .leading, spacing: 0) {
                     switch selectedSection {
                     case .general:
-                        GeneralSettingsPane()
+                        GeneralSettingsPane(contentWidth: contentWidth)
                     case .tools:
-                        ToolsSettingsPane()
+                        ToolsSettingsPane(contentWidth: contentWidth)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(width: contentWidth, alignment: .topLeading)
                 .padding(.bottom, 8)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(width: contentWidth, alignment: .topLeading)
             .scrollIndicators(.visible)
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 }
 
@@ -167,11 +170,12 @@ private struct GeneralSettingsPane: View {
     @AppStorage(AppPreferenceKeys.autoDetectClipboard) private var autoDetectClipboard = true
     @AppStorage(AppPreferenceKeys.defaultQuality) private var defaultQuality = AppPreferenceDefaults.defaultQuality
     @AppStorage(AppPreferenceKeys.defaultContainer) private var defaultContainer = AppPreferenceDefaults.defaultContainer
+    let contentWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SettingsGroup(title: "Varsayılanlar", systemImage: "slider.horizontal.3") {
-                SettingsRow(title: "Çözünürlük") {
+            SettingsGroup(title: "Varsayılanlar", systemImage: "slider.horizontal.3", contentWidth: contentWidth) {
+                SettingsRow(title: "Çözünürlük", contentWidth: contentWidth) {
                     Picker("Varsayılan çözünürlük", selection: $defaultQuality) {
                         ForEach(QualityProfile.allCases) { profile in
                             Text(profile.title).tag(profile.rawValue)
@@ -184,7 +188,7 @@ private struct GeneralSettingsPane: View {
                     }
                 }
 
-                SettingsRow(title: "Format") {
+                SettingsRow(title: "Format", contentWidth: contentWidth) {
                     Picker("Varsayılan format", selection: $defaultContainer) {
                         ForEach(DownloadContainer.allCases) { container in
                             Text(container.title).tag(container.rawValue)
@@ -201,8 +205,8 @@ private struct GeneralSettingsPane: View {
 
             Divider()
 
-            SettingsGroup(title: "Davranış", systemImage: "sparkles") {
-                SettingsRow(title: "Açılışta panoyu kontrol et") {
+            SettingsGroup(title: "Davranış", systemImage: "sparkles", contentWidth: contentWidth) {
+                SettingsRow(title: "Açılışta panoyu kontrol et", contentWidth: contentWidth) {
                     Toggle("Açılışta panoyu kontrol et", isOn: $autoDetectClipboard)
                         .labelsHidden()
                         .toggleStyle(.switch)
@@ -211,21 +215,23 @@ private struct GeneralSettingsPane: View {
 
             Divider()
 
-            SettingsGroup(title: "İndirme klasörü", systemImage: "folder") {
+            SettingsGroup(title: "İndirme klasörü", systemImage: "folder", contentWidth: contentWidth) {
                 DestinationPickerView()
+                    .frame(width: contentWidth, alignment: .leading)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 }
 
 private struct ToolsSettingsPane: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var updater = UpdateChecker.shared
+    let contentWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SettingsGroup(title: "Araç durumu", systemImage: "checkmark.seal") {
+            SettingsGroup(title: "Araç durumu", systemImage: "checkmark.seal", contentWidth: contentWidth) {
                 DependencyRow(name: "yt-dlp", tool: model.dependencyStatus.ytdlp, required: true)
                 DependencyRow(name: "ffmpeg", tool: model.dependencyStatus.ffmpeg, required: false)
                 DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: false)
@@ -233,13 +239,13 @@ private struct ToolsSettingsPane: View {
 
             Divider()
 
-            SettingsGroup(title: "YouTubeJack", systemImage: "app.badge") {
+            SettingsGroup(title: "YouTubeJack", systemImage: "app.badge", contentWidth: contentWidth) {
                 AppUpdateSection()
             }
 
             Divider()
 
-            SettingsGroup(title: "yt-dlp", systemImage: "square.and.arrow.down") {
+            SettingsGroup(title: "yt-dlp", systemImage: "square.and.arrow.down", contentWidth: contentWidth) {
                 YTDLPUpdateSection()
             }
 
@@ -249,7 +255,7 @@ private struct ToolsSettingsPane: View {
                 Label("Araçları yenile", systemImage: "arrow.clockwise")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
         .onAppear {
             Task {
                 await updater.checkForUpdates(force: true)
@@ -262,11 +268,13 @@ private struct ToolsSettingsPane: View {
 private struct SettingsGroup<Content: View>: View {
     let title: String
     let systemImage: String
+    let contentWidth: CGFloat
     let content: Content
 
-    init(title: String, systemImage: String, @ViewBuilder content: () -> Content) {
+    init(title: String, systemImage: String, contentWidth: CGFloat, @ViewBuilder content: () -> Content) {
         self.title = title
         self.systemImage = systemImage
+        self.contentWidth = contentWidth
         self.content = content()
     }
 
@@ -277,18 +285,20 @@ private struct SettingsGroup<Content: View>: View {
                 .foregroundStyle(.secondary)
 
             content
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: contentWidth, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(width: contentWidth, alignment: .leading)
     }
 }
 
 private struct SettingsRow<Content: View>: View {
     let title: String
+    let contentWidth: CGFloat
     let content: Content
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(title: String, contentWidth: CGFloat, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.contentWidth = contentWidth
         self.content = content()
     }
 
@@ -303,7 +313,7 @@ private struct SettingsRow<Content: View>: View {
             content
                 .frame(minWidth: 190, alignment: .trailing)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(width: contentWidth, alignment: .leading)
     }
 }
 
