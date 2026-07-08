@@ -50,7 +50,6 @@ struct SettingsView: View {
 private struct DependencyStatusView: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var updater = UpdateChecker.shared
-    @State private var isConfirmingYTDLPUpdate = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -89,7 +88,7 @@ private struct DependencyStatusView: View {
                     .disabled(model.isUpdatingYTDLP)
 
                     Button {
-                        isConfirmingYTDLPUpdate = true
+                        Task { await model.updateYTDLP() }
                     } label: {
                         Label("Güncelle", systemImage: "square.and.arrow.down")
                     }
@@ -116,18 +115,6 @@ private struct DependencyStatusView: View {
                 await updater.checkForUpdates(force: true)
                 await model.checkYTDLPUpdate()
             }
-        }
-        .confirmationDialog(
-            "yt-dlp güncellensin mi?",
-            isPresented: $isConfirmingYTDLPUpdate,
-            titleVisibility: .visible
-        ) {
-            Button("Güncelle") {
-                Task { await model.updateYTDLP() }
-            }
-            Button("Vazgeç", role: .cancel) {}
-        } message: {
-            Text("Uygulama, resmi yt-dlp GitHub release dosyasını indirip checksum doğrulamasından sonra Application Support içine kuracak.")
         }
     }
 

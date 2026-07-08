@@ -38,7 +38,7 @@ public enum RuntimeToolOrigin: String, Codable, Sendable {
     public var title: String {
         switch self {
         case .managed:
-            return "güncellenebilir"
+            return "yönetilen"
         case .bundled:
             return "uygulama içi"
         case .system:

@@ -140,13 +140,15 @@ final class AppModel: ObservableObject {
 
     func checkYTDLPUpdate() async {
         guard isUpdatingYTDLP == false else { return }
-        ytdlpUpdateMessage = nil
+        isUpdatingYTDLP = true
+        ytdlpUpdateMessage = "yt-dlp kontrol ediliyor..."
+        defer { isUpdatingYTDLP = false }
+
+        let installedVersion = await ytdlpUpdateService.installedVersion()
+        ytdlpInstalledVersion = installedVersion
+
         do {
-            async let installed = ytdlpUpdateService.installedVersion()
-            async let latest = ytdlpUpdateService.latestRelease()
-            let installedVersion = await installed
-            let latestRelease = try await latest
-            ytdlpInstalledVersion = installedVersion
+            let latestRelease = try await ytdlpUpdateService.latestRelease()
             ytdlpLatestVersion = latestRelease.version
 
             if installedVersion == latestRelease.version {
@@ -157,13 +159,14 @@ final class AppModel: ObservableObject {
                 ytdlpUpdateMessage = "Yeni sürüm hazır: \(latestRelease.version)"
             }
         } catch {
-            ytdlpUpdateMessage = error.localizedDescription
+            ytdlpUpdateMessage = "Son sürüm kontrolü başarısız: \(error.localizedDescription)"
         }
     }
 
     func updateYTDLP() async {
         guard isUpdatingYTDLP == false else { return }
         isUpdatingYTDLP = true
+        defer { isUpdatingYTDLP = false }
         ytdlpUpdateMessage = "yt-dlp indiriliyor..."
 
         do {
@@ -175,8 +178,6 @@ final class AppModel: ObservableObject {
         } catch {
             ytdlpUpdateMessage = error.localizedDescription
         }
-
-        isUpdatingYTDLP = false
     }
 
     func detectClipboardURL() {

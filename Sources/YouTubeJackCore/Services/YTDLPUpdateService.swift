@@ -109,7 +109,13 @@ public final class YTDLPUpdateService: Sendable {
     }
 
     private func data(from url: URL) async throws -> Data {
-        let (data, response) = try await session.data(from: url)
+        var request = URLRequest(url: url)
+        request.setValue("YouTubeJack-YTDLPUpdater", forHTTPHeaderField: "User-Agent")
+        if url.host?.lowercased() == "api.github.com" {
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        }
+
+        let (data, response) = try await session.data(for: request)
         if let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) == false {
             throw YTDLPUpdateError.downloadFailed(httpResponse.statusCode)
         }
