@@ -26,6 +26,11 @@ let package = Package(
             name: "YouTubeJackCoreTests",
             dependencies: ["YouTubeJackCore"],
             path: "Tests/YouTubeJackCoreTests"
+        ),
+        .testTarget(
+            name: "YouTubeJackTests",
+            dependencies: ["YouTubeJack"],
+            path: "Tests/YouTubeJackTests"
         )
     ]
 )
