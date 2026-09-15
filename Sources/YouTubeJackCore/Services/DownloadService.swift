@@ -123,6 +123,7 @@ public final class DownloadService {
             "--progress-template",
             "download:download-progress:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s"
         ]
+        arguments.append(contentsOf: dependencyResolver.javaScriptRuntimeArguments())
 
         if attempt.usesChunking {
             arguments.append(contentsOf: ["--http-chunk-size", "10M"])

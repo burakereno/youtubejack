@@ -3,6 +3,7 @@ import Foundation
 
 public enum YTDLPUpdateError: LocalizedError, Sendable {
     case releaseAssetMissing
+    case releaseVersionMissing
     case checksumMissing
     case checksumMismatch
     case untrustedReleaseURL
@@ -12,6 +13,8 @@ public enum YTDLPUpdateError: LocalizedError, Sendable {
         switch self {
         case .releaseAssetMissing:
             return "yt-dlp macOS release dosyası bulunamadı."
+        case .releaseVersionMissing:
+            return "yt-dlp release sürümü bulunamadı."
         case .checksumMissing:
             return "yt-dlp checksum bilgisi bulunamadı."
         case .checksumMismatch:
@@ -53,30 +56,18 @@ public final class YTDLPUpdateService: Sendable {
     }
 
     public func latestRelease() async throws -> YTDLPReleaseInfo {
-        let url = URL(string: "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")!
-        let data = try await data(from: url)
-        let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-
-        guard
-            let asset = release.assets.first(where: { $0.name == "yt-dlp_macos" }),
-            let assetURL = URL(string: asset.browserDownloadURL)
-        else {
-            throw YTDLPUpdateError.releaseAssetMissing
-        }
-
-        guard
-            let checksumAsset = release.assets.first(where: { $0.name == "SHA2-256SUMS" }),
-            let checksumURL = URL(string: checksumAsset.browserDownloadURL)
-        else {
-            throw YTDLPUpdateError.checksumMissing
-        }
+        let tag = try await latestReleaseTag()
+        let assetURL = releaseAssetURL(tag: tag, assetName: "yt-dlp_macos")
+        let checksumURL = releaseAssetURL(tag: tag, assetName: "SHA2-256SUMS")
 
         guard isTrustedGitHubReleaseURL(assetURL), isTrustedGitHubReleaseURL(checksumURL) else {
             throw YTDLPUpdateError.untrustedReleaseURL
         }
+        try await validateReleaseAssetURL(assetURL, missingError: .releaseAssetMissing)
+        try await validateReleaseAssetURL(checksumURL, missingError: .checksumMissing)
 
         return YTDLPReleaseInfo(
-            version: release.tagName,
+            version: tag,
             assetURL: assetURL,
             checksumURL: checksumURL
         )
@@ -122,6 +113,50 @@ public final class YTDLPUpdateService: Sendable {
         return data
     }
 
+    private func latestReleaseTag() async throws -> String {
+        let url = URL(string: "https://github.com/yt-dlp/yt-dlp/releases/latest")!
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 12
+        request.setValue("text/html", forHTTPHeaderField: "Accept")
+        request.setValue("YouTubeJack-YTDLPUpdater", forHTTPHeaderField: "User-Agent")
+
+        let (_, response) = try await session.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode) == false {
+            throw YTDLPUpdateError.downloadFailed(httpResponse.statusCode)
+        }
+
+        guard
+            let resolvedURL = response.url,
+            resolvedURL.lastPathComponent != "latest"
+        else {
+            throw YTDLPUpdateError.releaseVersionMissing
+        }
+
+        return resolvedURL.lastPathComponent
+    }
+
+    private func releaseAssetURL(tag: String, assetName: String) -> URL {
+        URL(string: "https://github.com/yt-dlp/yt-dlp/releases/download/\(tag)/\(assetName)")!
+    }
+
+    private func validateReleaseAssetURL(_ url: URL, missingError: YTDLPUpdateError) async throws {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 12
+        request.setValue("YouTubeJack-YTDLPUpdater", forHTTPHeaderField: "User-Agent")
+
+        let (_, response) = try await session.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse {
+            if httpResponse.statusCode == 404 {
+                throw missingError
+            }
+            if (200..<300).contains(httpResponse.statusCode) == false {
+                throw YTDLPUpdateError.downloadFailed(httpResponse.statusCode)
+            }
+        }
+    }
+
     private func isTrustedGitHubReleaseURL(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https" else { return false }
         return url.host?.lowercased() == "github.com"
@@ -152,25 +187,5 @@ public final class YTDLPUpdateService: Sendable {
         guard actual.caseInsensitiveCompare(expected) == .orderedSame else {
             throw YTDLPUpdateError.checksumMismatch
         }
-    }
-}
-
-private struct GitHubRelease: Decodable {
-    let tagName: String
-    let assets: [GitHubReleaseAsset]
-
-    enum CodingKeys: String, CodingKey {
-        case tagName = "tag_name"
-        case assets
-    }
-}
-
-private struct GitHubReleaseAsset: Decodable {
-    let name: String
-    let browserDownloadURL: String
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case browserDownloadURL = "browser_download_url"
     }
 }

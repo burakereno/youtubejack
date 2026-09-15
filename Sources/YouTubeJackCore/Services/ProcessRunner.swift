@@ -67,7 +67,8 @@ public final class ProcessRunner: Sendable {
             from: stderrPipe.fileHandleForReading,
             onLine: onStderrLine,
             maxCollectedOutputBytes: maxCollectedOutputBytes,
-            collectOutput: collectOutput
+            collectOutput: true,
+            keepRecentOutput: true
         )
 
         let didFinish = await withTaskCancellationHandler {
@@ -90,7 +91,11 @@ public final class ProcessRunner: Sendable {
 
         let stdoutValue = await stdout
         let stderrValue = await stderr
-        let result = ProcessResult(exitCode: process.terminationStatus, stdout: stdoutValue, stderr: stderrValue)
+        let result = ProcessResult(
+            exitCode: process.terminationStatus,
+            stdout: stdoutValue,
+            stderr: collectOutput ? stderrValue : ""
+        )
 
         guard process.terminationStatus == 0 else {
             throw ProcessExecutionError(
@@ -128,7 +133,8 @@ public final class ProcessRunner: Sendable {
         from fileHandle: FileHandle,
         onLine: ((String) -> Void)?,
         maxCollectedOutputBytes: Int,
-        collectOutput: Bool
+        collectOutput: Bool,
+        keepRecentOutput: Bool = false
     ) async -> String {
         await Task.detached(priority: .utility) {
             var collected = Data()
@@ -142,9 +148,17 @@ public final class ProcessRunner: Sendable {
                 }
 
                 let chunk = String(data: data, encoding: .utf8) ?? ""
-                if collectOutput, maxCollectedOutputBytes > 0, collected.count < maxCollectedOutputBytes {
-                    let remaining = maxCollectedOutputBytes - collected.count
-                    collected.append(contentsOf: data.prefix(remaining))
+                if collectOutput, maxCollectedOutputBytes > 0 {
+                    if keepRecentOutput {
+                        // Failures usually appear at the end, after progress and warnings.
+                        collected.append(contentsOf: data.suffix(maxCollectedOutputBytes))
+                        if collected.count > maxCollectedOutputBytes {
+                            collected.removeFirst(collected.count - maxCollectedOutputBytes)
+                        }
+                    } else if collected.count < maxCollectedOutputBytes {
+                        let remaining = maxCollectedOutputBytes - collected.count
+                        collected.append(contentsOf: data.prefix(remaining))
+                    }
                 }
                 buffer += chunk
 
@@ -163,7 +177,7 @@ public final class ProcessRunner: Sendable {
             if buffer.isEmpty == false {
                 onLine?(buffer.trimmingCharacters(in: .newlines))
             }
-            return String(data: collected, encoding: .utf8) ?? ""
+            return String(decoding: collected, as: UTF8.self)
         }.value
     }
 }

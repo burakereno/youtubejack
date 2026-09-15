@@ -115,7 +115,73 @@ private struct DownloadQueueRow: View {
     let isDropTarget: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            mediaHeader
+
+            ProgressView(value: item.progress)
+                .opacity(item.status == .running || item.status == .completed ? 1 : 0.35)
+                .accessibilityLabel("İndirme ilerlemesi")
+                .accessibilityValue(DisplayFormatters.percent(item.progress))
+
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(item.status.title)
+                            .foregroundStyle(iconColor)
+                        if item.status == .running || item.status == .completed {
+                            Text(DisplayFormatters.percent(item.progress))
+                                .monospacedDigit()
+                        }
+                    }
+                    .font(.caption.weight(.medium))
+                    .fixedSize(horizontal: true, vertical: false)
+
+                    if item.status == .running {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) { transferDetails }
+                            VStack(alignment: .leading, spacing: 4) { transferDetails }
+                        }
+                        .font(.caption)
+                        .monospacedDigit()
+                    }
+                }
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                rowActions
+                    .controlSize(.small)
+                    .fixedSize()
+            }
+
+            if let error = item.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .help(error)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(12)
+        .contentShape(Rectangle())
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isDropTarget ? Color.orange.opacity(0.12) : Color.clear)
+        )
+        .overlay(alignment: .top) {
+            if isDropTarget {
+                Capsule()
+                    .fill(Color.orange.opacity(0.85))
+                    .frame(height: 3)
+                    .padding(.horizontal, 12)
+            }
+        }
+    }
+
+    private var mediaHeader: some View {
+        HStack(spacing: 10) {
             dragHandle
 
             ThumbnailView(url: item.thumbnailURL)
@@ -128,7 +194,8 @@ private struct DownloadQueueRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)
                     .font(.callout.weight(.semibold))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .help(item.title)
 
                 HStack(spacing: 5) {
                     Text(formatLabel)
@@ -138,29 +205,26 @@ private struct DownloadQueueRow: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-
-                ProgressView(value: item.progress)
-                    .opacity(item.status == .running || item.status == .completed ? 1 : 0.35)
-
-                HStack(spacing: 8) {
-                    Text(item.status.title)
-                    if item.speed.isEmpty == false {
-                        Text(item.speed)
-                    }
-                    if item.eta.isEmpty == false, item.eta != "Unknown" {
-                        Text("ETA \(item.eta)")
-                    }
-                    if let error = item.errorMessage {
-                        Text(error)
-                            .lineLimit(1)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
-            Spacer()
+    @ViewBuilder
+    private var transferDetails: some View {
+        if item.speed.isEmpty == false, item.speed != "Unknown", item.speed != "N/A" {
+            Text(item.speed)
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityLabel("İndirme hızı \(item.speed)")
+        }
+        if item.eta.isEmpty == false, item.eta != "Unknown", item.eta != "N/A" {
+            Label("Kalan \(item.eta)", systemImage: "clock")
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
 
+    private var rowActions: some View {
+        HStack(spacing: 6) {
             if item.status == .failed || item.status == .cancelled {
                 Button {
                     model.retry(item)
@@ -187,20 +251,6 @@ private struct DownloadQueueRow: View {
                 }
                 .labelStyle(.iconOnly)
                 .help("Finder'da göster")
-            }
-        }
-        .padding(12)
-        .contentShape(Rectangle())
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isDropTarget ? Color.orange.opacity(0.12) : Color.clear)
-        )
-        .overlay(alignment: .top) {
-            if isDropTarget {
-                Capsule()
-                    .fill(Color.orange.opacity(0.85))
-                    .frame(height: 3)
-                    .padding(.horizontal, 12)
             }
         }
     }

@@ -1,13 +1,28 @@
 import Foundation
 
 public final class DependencyResolver: Sendable {
-    public init() {}
+    private let managedDirectory: URL?
+    private let bundledDirectory: URL?
+    private let systemSearchPaths: [String]
+
+    public init(
+        managedBinDirectory: URL? = nil,
+        bundledBinDirectory: URL? = Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true),
+        systemSearchPaths: [String]? = nil
+    ) {
+        managedDirectory = managedBinDirectory
+        bundledDirectory = bundledBinDirectory
+        self.systemSearchPaths = systemSearchPaths ?? (
+            (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+            + ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/opt/local/bin"]
+        )
+    }
 
     public func resolveStatus() -> DependencyStatus {
         DependencyStatus(
             ytdlp: findTool(named: "yt-dlp"),
             ffmpeg: findTool(named: "ffmpeg"),
-            jsRuntimePath: findExecutable(named: "node") ?? findExecutable(named: "deno")
+            jsRuntimePath: javaScriptRuntime()?.path
         )
     }
 
@@ -22,7 +37,23 @@ public final class DependencyResolver: Sendable {
         findTool(named: "ffmpeg")?.path
     }
 
+    public func javaScriptRuntimeArguments() -> [String] {
+        guard let runtime = javaScriptRuntime() else { return [] }
+        // GUI apps do not inherit the shell's Homebrew PATH, and Node is opt-in in yt-dlp.
+        return ["--no-js-runtimes", "--js-runtimes", "\(runtime.name):\(runtime.path)"]
+    }
+
+    private func javaScriptRuntime() -> (name: String, path: String)? {
+        for name in ["deno", "node"] {
+            if let path = findTool(named: name)?.path ?? findExecutable(named: name) {
+                return (name, path)
+            }
+        }
+        return nil
+    }
+
     public func managedBinDirectory() throws -> URL {
+        if let managedDirectory { return managedDirectory }
         guard let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw AppError.outputDirectoryUnavailable("Application Support")
         }
@@ -32,7 +63,7 @@ public final class DependencyResolver: Sendable {
     }
 
     public func bundledBinDirectory() -> URL? {
-        Bundle.main.resourceURL?.appendingPathComponent("bin", isDirectory: true)
+        bundledDirectory
     }
 
     public func findTool(named name: String) -> RuntimeTool? {
@@ -60,19 +91,9 @@ public final class DependencyResolver: Sendable {
     }
 
     private func findSystemExecutable(named name: String) -> String? {
-        var candidates: [String] = []
-        let pathValue = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        candidates.append(contentsOf: pathValue.split(separator: ":").map { String($0) })
-        candidates.append(contentsOf: [
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            "/opt/local/bin"
-        ])
-
         let fileManager = FileManager.default
-        for directory in Array(Set(candidates)) {
+        var visited = Set<String>()
+        for directory in systemSearchPaths where visited.insert(directory).inserted {
             let path = URL(fileURLWithPath: directory).appendingPathComponent(name).path
             if fileManager.isExecutableFile(atPath: path) {
                 return path

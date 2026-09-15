@@ -99,11 +99,22 @@ fi
 
 if [[ -d "$RESOURCES_DIR/bin" ]]; then
   while IFS= read -r executable; do
-    /usr/bin/codesign "${signing_common_args[@]}" "$executable" >/dev/null
+    if [[ "$executable" == "$RESOURCES_DIR/bin/yt-dlp" ]]; then
+      # Re-signing the PyInstaller launcher cannot re-sign its compressed Python libraries.
+      /usr/bin/codesign "${signing_common_args[@]}" \
+        --entitlements "$ROOT_DIR/scripts/yt-dlp.entitlements.plist" "$executable" >/dev/null
+    else
+      /usr/bin/codesign "${signing_common_args[@]}" "$executable" >/dev/null
+    fi
   done < <(/usr/bin/find "$RESOURCES_DIR/bin" -type f -perm -111)
 fi
 
-/usr/bin/codesign "${signing_common_args[@]}" --deep "$APP_DIR" >/dev/null
+# Nested tools are already signed; preserve their individual entitlements.
+/usr/bin/codesign "${signing_common_args[@]}" "$APP_DIR" >/dev/null
+
+# A valid signature alone does not prove that the embedded Python can load.
+"$RESOURCES_DIR/bin/yt-dlp" --version
+"$RESOURCES_DIR/bin/ffmpeg" -version >/dev/null
 
 echo "Built $APP_DIR"
 echo "Signed with $CODESIGN_IDENTITY"

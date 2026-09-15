@@ -46,6 +46,7 @@ public final class MetadataService: Sendable {
             "--no-warnings",
             "--no-cache-dir"
         ]
+        arguments.append(contentsOf: dependencyResolver.javaScriptRuntimeArguments())
 
         if parsed.isPlaylist {
             arguments.append("--flat-playlist")
