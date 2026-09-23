@@ -18,9 +18,9 @@ public enum DownloadContainer: String, CaseIterable, Codable, Identifiable, Send
     public var detail: String {
         switch self {
         case .mp4:
-            return "H.264/AAC uyumlu akış varsa seçilir"
+            return "MP4 akışları seçilir; video codec’i ayrıca belirlenir"
         case .webm:
-            return "VP9/Opus gibi yüksek kalite akışları korur"
+            return "WebM akışları seçilir; video codec’i ayrıca belirlenir"
         }
     }
 

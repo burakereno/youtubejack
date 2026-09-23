@@ -2,6 +2,49 @@ import XCTest
 @testable import YouTubeJackCore
 
 final class DownloadServiceTests: XCTestCase {
+    func testH264DownloadReportsActualSelectedCodecs() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try writeExecutable("yt-dlp", in: directory, script: """
+        #!/bin/sh
+        printf '%s\\n' "$@" > "$(dirname "$0")/arguments"
+        printf 'download-codecs:1080|avc1.640028|mp4a.40.2\\n'
+        printf '[download] Destination: /tmp/h264.mp4\\n'
+        printf 'download-output:/tmp/final-h264.mp4\\n'
+        """)
+
+        let resolver = DependencyResolver(
+            managedBinDirectory: directory,
+            bundledBinDirectory: nil,
+            systemSearchPaths: [directory.path]
+        )
+        let item = DownloadItem(
+            url: "https://www.youtube.com/watch?v=j8qdnqwjRJA",
+            title: "H264 fixture",
+            quality: .q1080,
+            container: .mp4,
+            videoCodecPreference: .h264
+        )
+        var selected: SelectedMediaFormat?
+        let path = try await DownloadService(dependencyResolver: resolver).download(
+            item: item,
+            outputDirectory: directory.appendingPathComponent("output").path,
+            onProgress: { _ in },
+            onOutputPath: { _ in },
+            onSelectedMediaFormat: { selected = $0 }
+        )
+
+        XCTAssertEqual(path, "/tmp/final-h264.mp4")
+        XCTAssertEqual(selected?.height, 1080)
+        XCTAssertEqual(selected?.videoCodecTitle, "H.264")
+        XCTAssertEqual(selected?.audioCodecTitle, "AAC")
+        let arguments = try String(contentsOf: directory.appendingPathComponent("arguments"))
+        XCTAssertTrue(arguments.contains(VideoCodecPreference.h264.formatFilter))
+        XCTAssertTrue(arguments.contains("--no-simulate"))
+    }
+
     func testForbiddenDownloadRetriesWithChunkingAndExplicitRuntime() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

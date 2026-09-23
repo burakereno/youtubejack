@@ -100,35 +100,35 @@ public enum QualityProfile: String, CaseIterable, Codable, Identifiable, Sendabl
         "bestaudio/best"
     }
 
-    public func formatSelector(container: DownloadContainer) -> String {
+    public func formatSelector(container: DownloadContainer, codec: VideoCodecPreference = .automatic) -> String {
         switch self {
         case .best:
-            return bestSelector(container: container)
+            return bestSelector(container: container, codec: codec)
         case .q2160:
-            return exactVideoSelector(height: 2160, container: container)
+            return exactVideoSelector(height: 2160, container: container, codec: codec)
         case .q1440:
-            return exactVideoSelector(height: 1440, container: container)
+            return exactVideoSelector(height: 1440, container: container, codec: codec)
         case .q1080:
-            return exactVideoSelector(height: 1080, container: container)
+            return exactVideoSelector(height: 1080, container: container, codec: codec)
         case .q720:
-            return exactVideoSelector(height: 720, container: container)
+            return exactVideoSelector(height: 720, container: container, codec: codec)
         case .q480:
-            return exactVideoSelector(height: 480, container: container)
+            return exactVideoSelector(height: 480, container: container, codec: codec)
         case .audioM4A:
             return audioSelector
         }
     }
 
-    private func bestSelector(container: DownloadContainer) -> String {
+    private func bestSelector(container: DownloadContainer, codec: VideoCodecPreference) -> String {
         switch container {
         case .mp4:
-            return "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]"
+            return "bv*[ext=mp4]\(codec.formatFilter)+ba[ext=m4a]/b[ext=mp4]\(codec.formatFilter)"
         case .webm:
-            return "bv*[ext=webm]+ba[ext=webm]/b[ext=webm]"
+            return "bv*[ext=webm]\(codec.formatFilter)+ba[ext=webm]/b[ext=webm]\(codec.formatFilter)"
         }
     }
 
-    private func exactVideoSelector(height: Int, container: DownloadContainer) -> String {
+    private func exactVideoSelector(height: Int, container: DownloadContainer, codec: VideoCodecPreference) -> String {
         let heightClause: String
         if let lowerExclusiveHeight {
             heightClause = "[height<=\(height)][height>\(lowerExclusiveHeight)]"
@@ -138,9 +138,9 @@ public enum QualityProfile: String, CaseIterable, Codable, Identifiable, Sendabl
 
         switch container {
         case .mp4:
-            return "bv*\(heightClause)[ext=mp4]+ba[ext=m4a]/b\(heightClause)[ext=mp4]"
+            return "bv*\(heightClause)[ext=mp4]\(codec.formatFilter)+ba[ext=m4a]/b\(heightClause)[ext=mp4]\(codec.formatFilter)"
         case .webm:
-            return "bv*\(heightClause)[ext=webm]+ba[ext=webm]/b\(heightClause)[ext=webm]"
+            return "bv*\(heightClause)[ext=webm]\(codec.formatFilter)+ba[ext=webm]/b\(heightClause)[ext=webm]\(codec.formatFilter)"
         }
     }
 }

@@ -72,4 +72,22 @@ final class MediaFormatAvailabilityTests: XCTestCase {
 
         XCTAssertEqual(availability.estimatedDownloadSizeBytes(for: .audioM4A, container: .mp4), 10_000_000)
     }
+
+    func testCodecAvailabilityRespectsResolutionAndContainer() {
+        let availability = MediaFormatAvailability(isKnown: true, formats: [
+            MediaFormat(id: "137", ext: "mp4", height: 1080, vcodec: "avc1.640028", acodec: "none"),
+            MediaFormat(id: "399", ext: "mp4", height: 1080, vcodec: "av01.0.08M.08", acodec: "none"),
+            MediaFormat(id: "313", ext: "webm", height: 2160, vcodec: "av01.0.12M.08", acodec: "none"),
+            MediaFormat(id: "140", ext: "m4a", height: nil, vcodec: "none", acodec: "mp4a.40.2"),
+            MediaFormat(id: "251", ext: "webm", height: nil, vcodec: "none", acodec: "opus")
+        ])
+
+        XCTAssertTrue(availability.isResolutionAvailable(.q1080, codec: .h264))
+        XCTAssertFalse(availability.isResolutionAvailable(.q2160, codec: .h264))
+        XCTAssertFalse(availability.isContainerAvailable(.webm, for: .q1080, codec: .h264))
+        XCTAssertTrue(availability.isContainerAvailable(.mp4, for: .q1080, codec: .av1))
+        XCTAssertTrue(availability.isContainerAvailable(.webm, for: .q2160, codec: .av1))
+        XCTAssertEqual(availability.maxVideoHeight(codec: .h264), 1080)
+        XCTAssertEqual(availability.maxVideoHeight(codec: .av1), 2160)
+    }
 }

@@ -57,11 +57,23 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         formats.compactMap(\.height).max()
     }
 
-    public func isResolutionAvailable(_ profile: QualityProfile) -> Bool {
+    public func maxVideoHeight(codec: VideoCodecPreference) -> Int? {
+        formats
+            .filter { format in
+                guard format.hasVideo, codec.matches(format.vcodec),
+                      let ext = format.ext, let container = DownloadContainer(rawValue: ext.lowercased())
+                else { return false }
+                return codec.allows(container) && hasAudio(container: container)
+            }
+            .compactMap(\.height)
+            .max()
+    }
+
+    public func isResolutionAvailable(_ profile: QualityProfile, codec: VideoCodecPreference = .automatic) -> Bool {
         guard isKnown else { return true }
 
         if profile == .best {
-            return formats.contains(where: \.hasVideo)
+            return DownloadContainer.allCases.contains { isContainerAvailable($0, for: profile, codec: codec) }
         }
 
         if profile == .audioM4A {
@@ -69,33 +81,44 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         }
 
         guard profile.height != nil else { return true }
-        return formats.contains { format in
-            format.hasVideo && matchesResolutionBand(format.height, profile: profile)
-        }
+        return DownloadContainer.allCases.contains { isContainerAvailable($0, for: profile, codec: codec) }
     }
 
-    public func isContainerAvailable(_ container: DownloadContainer, for profile: QualityProfile) -> Bool {
-        guard isKnown else { return true }
+    public func isContainerAvailable(
+        _ container: DownloadContainer,
+        for profile: QualityProfile,
+        codec: VideoCodecPreference = .automatic
+    ) -> Bool {
         guard profile.isVideoQuality else { return false }
+        guard codec.allows(container) else { return false }
+        guard isKnown else { return true }
 
-        return hasVideo(container: container, profile: profile) && hasAudio(container: container)
+        return hasVideo(container: container, profile: profile, codec: codec) && hasAudio(container: container)
     }
 
-    public func preferredContainer(for profile: QualityProfile, preferred: DownloadContainer) -> DownloadContainer? {
-        if isContainerAvailable(preferred, for: profile) {
+    public func preferredContainer(
+        for profile: QualityProfile,
+        preferred: DownloadContainer,
+        codec: VideoCodecPreference = .automatic
+    ) -> DownloadContainer? {
+        if isContainerAvailable(preferred, for: profile, codec: codec) {
             return preferred
         }
-        return DownloadContainer.allCases.first { isContainerAvailable($0, for: profile) }
+        return DownloadContainer.allCases.first { isContainerAvailable($0, for: profile, codec: codec) }
     }
 
-    public func estimatedDownloadSizeBytes(for profile: QualityProfile, container: DownloadContainer) -> Int64? {
+    public func estimatedDownloadSizeBytes(
+        for profile: QualityProfile,
+        container: DownloadContainer,
+        codec: VideoCodecPreference = .automatic
+    ) -> Int64? {
         guard isKnown else { return nil }
 
         if profile.isAudioOnly {
             return bestAudioFormat()?.sizeBytes
         }
 
-        guard let videoFormat = bestVideoFormat(container: container, profile: profile) else {
+        guard let videoFormat = bestVideoFormat(container: container, profile: profile, codec: codec) else {
             return nil
         }
 
@@ -115,8 +138,8 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         return foundSize ? total : nil
     }
 
-    private func hasVideo(container: DownloadContainer, profile: QualityProfile) -> Bool {
-        bestVideoFormat(container: container, profile: profile) != nil
+    private func hasVideo(container: DownloadContainer, profile: QualityProfile, codec: VideoCodecPreference) -> Bool {
+        bestVideoFormat(container: container, profile: profile, codec: codec) != nil
     }
 
     private func matchesResolutionBand(_ value: Int?, profile: QualityProfile) -> Bool {
@@ -131,10 +154,11 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         bestAudioFormat(container: container) != nil
     }
 
-    private func bestVideoFormat(container: DownloadContainer, profile: QualityProfile) -> MediaFormat? {
+    private func bestVideoFormat(container: DownloadContainer, profile: QualityProfile, codec: VideoCodecPreference) -> MediaFormat? {
         formats
             .filter { format in
                 guard format.hasVideo, normalized(format.ext) == container.rawValue else { return false }
+                guard codec.matches(format.vcodec) else { return false }
                 if profile == .best {
                     return true
                 }

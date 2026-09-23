@@ -6,6 +6,7 @@ enum AppPreferenceKeys {
     static let autoDetectClipboard = "autoDetectClipboard"
     static let defaultQuality = "defaultQuality"
     static let defaultContainer = "defaultContainer"
+    static let defaultVideoCodec = "defaultVideoCodec"
 }
 
 enum AppPreferenceDefaults {
@@ -17,4 +18,5 @@ enum AppPreferenceDefaults {
 
     static let defaultQuality = "q1080"
     static let defaultContainer = "mp4"
+    static let defaultVideoCodec = "automatic"
 }

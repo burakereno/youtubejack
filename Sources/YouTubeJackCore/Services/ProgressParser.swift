@@ -12,7 +12,46 @@ public struct DownloadProgress: Equatable, Sendable {
     }
 }
 
+public struct SelectedMediaFormat: Equatable, Sendable {
+    public let height: Int?
+    public let videoCodec: String
+    public let audioCodec: String
+
+    public init(height: Int?, videoCodec: String, audioCodec: String) {
+        self.height = height
+        self.videoCodec = videoCodec
+        self.audioCodec = audioCodec
+    }
+
+    public var videoCodecTitle: String {
+        let codec = videoCodec.lowercased()
+        if codec.hasPrefix("avc1") || codec.hasPrefix("avc3") || codec.hasPrefix("h264") { return "H.264" }
+        if codec.hasPrefix("av01") || codec.hasPrefix("av1") { return "AV1" }
+        if codec.hasPrefix("vp9") { return "VP9" }
+        if codec.hasPrefix("vp8") { return "VP8" }
+        if codec.hasPrefix("hev1") || codec.hasPrefix("hvc1") || codec.hasPrefix("h265") { return "H.265" }
+        return videoCodec
+    }
+
+    public var audioCodecTitle: String {
+        let codec = audioCodec.lowercased()
+        if codec == "na" || codec == "none" { return "Ses bilinmiyor" }
+        if codec.hasPrefix("mp4a") || codec.hasPrefix("aac") { return "AAC" }
+        if codec.hasPrefix("opus") { return "Opus" }
+        if codec.hasPrefix("vorbis") { return "Vorbis" }
+        return audioCodec
+    }
+}
+
 public enum ProgressParser {
+    public static func selectedMediaFormat(_ line: String) -> SelectedMediaFormat? {
+        let prefix = "download-codecs:"
+        guard line.hasPrefix(prefix) else { return nil }
+        let values = line.dropFirst(prefix.count).split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard values.count == 3, values[1] != "NA", values[1] != "none" else { return nil }
+        return SelectedMediaFormat(height: Int(values[0]), videoCodec: values[1], audioCodec: values[2])
+    }
+
     public static func parse(_ line: String) -> DownloadProgress? {
         guard line.hasPrefix("download-progress:") else { return nil }
         let payload = line.replacingOccurrences(of: "download-progress:", with: "")
@@ -29,6 +68,10 @@ public enum ProgressParser {
     }
 
     public static func destinationPath(_ line: String) -> String? {
+        let finalPrefix = "download-output:"
+        if line.hasPrefix(finalPrefix) {
+            return String(line.dropFirst(finalPrefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let prefix = "[download] Destination:"
         guard line.hasPrefix(prefix) else { return nil }
         return String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)

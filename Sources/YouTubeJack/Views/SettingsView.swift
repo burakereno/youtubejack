@@ -161,6 +161,19 @@ private struct GeneralSettingsPane: View {
                         model.updateSelectedContainer(DownloadContainer(rawValue: newValue) ?? .mp4)
                     }
                 }
+
+                SettingsRow(title: "Video codec’i", contentWidth: contentWidth) {
+                    Picker("Video codec’i", selection: Binding(
+                        get: { model.selectedVideoCodec },
+                        set: { model.updateSelectedVideoCodec($0) }
+                    )) {
+                        ForEach(VideoCodecPreference.allCases) { codec in
+                            Text(codec.title).tag(codec)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 170)
+                }
             }
 
             SettingsDivider(width: contentWidth)

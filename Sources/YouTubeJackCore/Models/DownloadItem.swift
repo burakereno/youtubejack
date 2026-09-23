@@ -29,6 +29,8 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
     public let title: String
     public let quality: QualityProfile
     public var container: DownloadContainer
+    public let videoCodecPreference: VideoCodecPreference
+    public var selectedMediaFormat: SelectedMediaFormat?
     public let thumbnailURL: URL?
     public let estimatedSizeBytes: Int64?
     public let playlistIndex: Int?
@@ -47,6 +49,8 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
         title: String,
         quality: QualityProfile,
         container: DownloadContainer,
+        videoCodecPreference: VideoCodecPreference = .automatic,
+        selectedMediaFormat: SelectedMediaFormat? = nil,
         thumbnailURL: URL? = nil,
         estimatedSizeBytes: Int64? = nil,
         playlistIndex: Int? = nil,
@@ -64,6 +68,8 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
         self.title = title
         self.quality = quality
         self.container = container
+        self.videoCodecPreference = videoCodecPreference
+        self.selectedMediaFormat = selectedMediaFormat
         self.thumbnailURL = thumbnailURL
         self.estimatedSizeBytes = estimatedSizeBytes
         self.playlistIndex = playlistIndex

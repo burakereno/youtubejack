@@ -23,7 +23,8 @@
 ## Features
 
 - **Native preview** — paste a YouTube video or playlist URL and fetch title, channel, duration, and thumbnail
-- **Resolution-aware choices** — only available video resolutions and container formats are enabled
+- **Resolution-aware choices** — only available video resolutions, codecs, and container formats are enabled
+- **Video codec control** — choose automatic, H.264, or AV1 and see the selected video and audio codecs in the queue
 - **MP4 / WebM handling** — preserves high-quality WebM where needed and uses MP4 when available
 - **Playlist support** — select all, clear selection, and queue many playlist entries at once
 - **Queue control** — start, pause, remove, retry, and drag-drop reorder downloads

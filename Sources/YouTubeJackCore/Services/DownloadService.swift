@@ -22,7 +22,8 @@ public final class DownloadService {
         outputDirectory: String,
         onProgress: @escaping (DownloadProgress) -> Void,
         onOutputPath: @escaping (String) -> Void,
-        onContainerChanged: @escaping (DownloadContainer) -> Void = { _ in }
+        onContainerChanged: @escaping (DownloadContainer) -> Void = { _ in },
+        onSelectedMediaFormat: @escaping (SelectedMediaFormat?) -> Void = { _ in }
     ) async throws -> String? {
         let ytdlp = try dependencyResolver.requireYTDLP()
         try ensureDirectoryExists(outputDirectory)
@@ -38,6 +39,7 @@ public final class DownloadService {
             )
 
             do {
+                onSelectedMediaFormat(nil)
                 if attempt.container != item.container {
                     onContainerChanged(attempt.container)
                 }
@@ -46,6 +48,9 @@ public final class DownloadService {
                     executablePath: ytdlp,
                     arguments: arguments,
                     onStdoutLine: { line in
+                        if let format = ProgressParser.selectedMediaFormat(line) {
+                            onSelectedMediaFormat(format)
+                        }
                         if let progress = ProgressParser.parse(line) {
                             onProgress(progress)
                         }
@@ -72,6 +77,13 @@ public final class DownloadService {
                     continue
                 }
 
+                if item.videoCodecPreference != .automatic,
+                   error.localizedDescription.localizedCaseInsensitiveContains("requested format is not available") {
+                    throw AppError.processFailed(
+                        "\(item.videoCodecPreference.title) bu videoda seçilen çözünürlük ve formatta bulunamadı."
+                    )
+                }
+
                 if firstForbiddenError == nil {
                     throw AppError.processFailed(error.localizedDescription)
                 }
@@ -94,6 +106,13 @@ public final class DownloadService {
             return [
                 DownloadAttempt(container: item.container, usesChunking: false),
                 DownloadAttempt(container: item.container, usesChunking: true)
+            ]
+        }
+
+        guard item.videoCodecPreference != .h264 else {
+            return [
+                DownloadAttempt(container: .mp4, usesChunking: false),
+                DownloadAttempt(container: .mp4, usesChunking: true)
             ]
         }
 
@@ -138,9 +157,12 @@ public final class DownloadService {
             ])
         } else {
             arguments.append(contentsOf: [
-                "-f", item.quality.formatSelector(container: attempt.container),
+                "-f", item.quality.formatSelector(container: attempt.container, codec: item.videoCodecPreference),
                 "--merge-output-format", attempt.container.rawValue,
-                "--remux-video", attempt.container.rawValue
+                "--remux-video", attempt.container.rawValue,
+                "--print", "before_dl:download-codecs:%(height)s|%(vcodec)s|%(acodec)s",
+                "--print", "after_move:download-output:%(filepath)s",
+                "--no-simulate", "--no-quiet", "--progress"
             ])
         }
 

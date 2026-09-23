@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published var playlistEntries: [PlaylistEntry] = []
     @Published var selectedQuality: QualityProfile
     @Published var selectedContainer: DownloadContainer
+    @Published var selectedVideoCodec: VideoCodecPreference
     @Published var queue: [DownloadItem] = []
     @Published var isQueuePaused = true
     @Published var isQueueProcessing = false
@@ -47,6 +48,12 @@ final class AppModel: ObservableObject {
         selectedQuality = QualityProfile(rawValue: storedQuality ?? AppPreferenceDefaults.defaultQuality) ?? .q1080
         let storedContainer = UserDefaults.standard.string(forKey: AppPreferenceKeys.defaultContainer)
         selectedContainer = DownloadContainer(rawValue: storedContainer ?? AppPreferenceDefaults.defaultContainer) ?? .mp4
+        let storedCodec = UserDefaults.standard.string(forKey: AppPreferenceKeys.defaultVideoCodec)
+        selectedVideoCodec = VideoCodecPreference(rawValue: storedCodec ?? AppPreferenceDefaults.defaultVideoCodec) ?? .automatic
+        if selectedVideoCodec == .h264 {
+            selectedContainer = .mp4
+            UserDefaults.standard.set(DownloadContainer.mp4.rawValue, forKey: AppPreferenceKeys.defaultContainer)
+        }
         ensureDefaultDownloadDirectory()
         Task { await refreshYTDLPVersion() }
     }
@@ -96,26 +103,39 @@ final class AppModel: ObservableObject {
         if selectedQuality.isAudioOnly {
             return selectedQuality.detail
         }
-        return "\(selectedQuality.title) · \(selectedContainer.title)"
+        if isQualityAvailable(selectedQuality) == false || isContainerAvailable(selectedContainer, for: selectedQuality) == false {
+            return "Seçilen video akışı bu çözünürlükte veya formatta yok. Başka bir seçim yapın."
+        }
+        return "\(selectedQuality.title) · \(selectedVideoCodec.title) · \(selectedContainer.title)"
     }
 
     var maxResolutionDetail: String? {
+        guard selectedQuality.isVideoQuality else { return nil }
         guard
             let availability = media?.formatAvailability,
             availability.isKnown,
-            let maxHeight = availability.maxVideoHeight
+            let maxHeight = availability.maxVideoHeight(codec: selectedVideoCodec)
         else {
             return nil
         }
-        return "Bu videoda maksimum \(maxHeight)p var."
+        if selectedVideoCodec == .automatic {
+            return "Bu videoda maksimum \(maxHeight)p var."
+        }
+        return "\(selectedVideoCodec.title) için maksimum \(maxHeight)p var."
     }
 
     func isQualityAvailable(_ profile: QualityProfile) -> Bool {
-        media?.formatAvailability.isResolutionAvailable(profile) ?? true
+        media?.formatAvailability.isResolutionAvailable(profile, codec: selectedVideoCodec) ?? true
     }
 
     func isContainerAvailable(_ container: DownloadContainer, for profile: QualityProfile) -> Bool {
-        media?.formatAvailability.isContainerAvailable(container, for: profile) ?? true
+        guard selectedVideoCodec.allows(container) else { return false }
+        return media?.formatAvailability.isContainerAvailable(container, for: profile, codec: selectedVideoCodec) ?? true
+    }
+
+    func isVideoCodecAvailable(_ codec: VideoCodecPreference) -> Bool {
+        guard selectedQuality.isVideoQuality else { return false }
+        return media?.formatAvailability.isResolutionAvailable(selectedQuality, codec: codec) ?? true
     }
 
     func updateSelectedQuality(_ quality: QualityProfile) {
@@ -125,8 +145,22 @@ final class AppModel: ObservableObject {
     }
 
     func updateSelectedContainer(_ container: DownloadContainer) {
+        if selectedVideoCodec.allows(container) == false {
+            selectedVideoCodec = .automatic
+            UserDefaults.standard.set(VideoCodecPreference.automatic.rawValue, forKey: AppPreferenceKeys.defaultVideoCodec)
+        }
         selectedContainer = container
         UserDefaults.standard.set(container.rawValue, forKey: AppPreferenceKeys.defaultContainer)
+        reconcileSelectionWithAvailability()
+    }
+
+    func updateSelectedVideoCodec(_ codec: VideoCodecPreference) {
+        selectedVideoCodec = codec
+        UserDefaults.standard.set(codec.rawValue, forKey: AppPreferenceKeys.defaultVideoCodec)
+        if codec == .h264 {
+            selectedContainer = .mp4
+            UserDefaults.standard.set(DownloadContainer.mp4.rawValue, forKey: AppPreferenceKeys.defaultContainer)
+        }
         reconcileSelectionWithAvailability()
     }
 
@@ -332,6 +366,7 @@ final class AppModel: ObservableObject {
 	                        title: candidate.entry.title,
 	                        quality: selectedQuality,
 	                        container: selectedContainer,
+	                        videoCodecPreference: selectedVideoCodec,
 	                        thumbnailURL: candidate.entry.thumbnailURL,
 	                        playlistIndex: candidate.entry.index
 	                    )
@@ -351,6 +386,7 @@ final class AppModel: ObservableObject {
 	                    title: media.title,
 	                    quality: selectedQuality,
 	                    container: selectedContainer,
+	                    videoCodecPreference: selectedVideoCodec,
 	                    thumbnailURL: media.thumbnailURL,
 	                    estimatedSizeBytes: estimatedSizeBytes(for: media)
 	                )
@@ -393,14 +429,15 @@ final class AppModel: ObservableObject {
         guard let index = queue.firstIndex(where: { $0.id == item.id }) else { return }
         queue[index].status = .pending
         queue[index].progress = 0
-	        queue[index].speed = ""
-	        queue[index].eta = ""
-	        queue[index].fileSizeBytes = nil
-	        queue[index].errorMessage = nil
-	        cancelledItems.remove(item.id)
-	        if isQueuePaused == false {
-	            startQueueIfNeeded()
-	        }
+        queue[index].selectedMediaFormat = nil
+        queue[index].speed = ""
+        queue[index].eta = ""
+        queue[index].fileSizeBytes = nil
+        queue[index].errorMessage = nil
+        cancelledItems.remove(item.id)
+        if isQueuePaused == false {
+            startQueueIfNeeded()
+        }
     }
 
     func clearFinished() {
@@ -529,6 +566,7 @@ final class AppModel: ObservableObject {
             queue[index].status = .running
             queue[index].speed = ""
             queue[index].eta = ""
+            queue[index].selectedMediaFormat = nil
             queue[index].errorMessage = nil
 
             let item = queue[index]
@@ -558,6 +596,11 @@ final class AppModel: ObservableObject {
                     onContainerChanged: { [weak self] container in
                         Task { @MainActor in
                             self?.setContainer(container, for: item.id)
+                        }
+                    },
+                    onSelectedMediaFormat: { [weak self] format in
+                        Task { @MainActor in
+                            self?.setSelectedMediaFormat(format, for: item.id)
                         }
                     }
                 )
@@ -603,6 +646,11 @@ final class AppModel: ObservableObject {
 	    guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
 	    queue[index].container = container
 	}
+
+    private func setSelectedMediaFormat(_ format: SelectedMediaFormat?, for id: UUID) {
+        guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
+        queue[index].selectedMediaFormat = format
+    }
 
     private func mark(_ id: UUID, status: DownloadState, errorMessage: String? = nil) {
         guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
@@ -659,30 +707,38 @@ final class AppModel: ObservableObject {
         if defaults.string(forKey: AppPreferenceKeys.defaultContainer) == nil {
             defaults.set(AppPreferenceDefaults.defaultContainer, forKey: AppPreferenceKeys.defaultContainer)
         }
+        if defaults.string(forKey: AppPreferenceKeys.defaultVideoCodec) == nil {
+            defaults.set(AppPreferenceDefaults.defaultVideoCodec, forKey: AppPreferenceKeys.defaultVideoCodec)
+        }
     }
 
-	private func reconcileSelectionWithAvailability() {
+    private func reconcileSelectionWithAvailability() {
         guard let media else { return }
 
-        if media.formatAvailability.isResolutionAvailable(selectedQuality) == false {
-            selectedQuality = QualityProfile.allCases.first { media.formatAvailability.isResolutionAvailable($0) } ?? .best
+        if media.formatAvailability.isResolutionAvailable(selectedQuality, codec: selectedVideoCodec) == false {
+            selectedQuality = QualityProfile.allCases.first {
+                media.formatAvailability.isResolutionAvailable($0, codec: selectedVideoCodec)
+            } ?? selectedQuality
             UserDefaults.standard.set(selectedQuality.rawValue, forKey: AppPreferenceKeys.defaultQuality)
         }
 
         guard selectedQuality.isVideoQuality else { return }
 
-        if let container = media.formatAvailability.preferredContainer(for: selectedQuality, preferred: selectedContainer) {
+        if let container = media.formatAvailability.preferredContainer(
+            for: selectedQuality, preferred: selectedContainer, codec: selectedVideoCodec
+        ) {
             selectedContainer = container
             UserDefaults.standard.set(container.rawValue, forKey: AppPreferenceKeys.defaultContainer)
-	    }
-	}
+        }
+    }
 
-	private func estimatedSizeBytes(for media: MediaInfo) -> Int64? {
-	    media.formatAvailability.estimatedDownloadSizeBytes(
-	        for: selectedQuality,
-	        container: selectedContainer
-	    )
-	}
+    private func estimatedSizeBytes(for media: MediaInfo) -> Int64? {
+        media.formatAvailability.estimatedDownloadSizeBytes(
+            for: selectedQuality,
+            container: selectedContainer,
+            codec: selectedVideoCodec
+        )
+    }
 
 	private func fileSizeBytes(for item: DownloadItem) -> Int64? {
 	    let paths = [item.outputPath].compactMap { $0 } + item.outputPaths

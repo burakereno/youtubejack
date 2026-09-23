@@ -33,6 +33,23 @@ struct QualityPickerView: View {
             }
 
             if model.selectedQuality.isVideoQuality {
+                HStack(spacing: 8) {
+                    Text("Video codec’i")
+                        .font(.callout.weight(.semibold))
+                    ForEach(VideoCodecPreference.allCases) { codec in
+                        let available = model.isVideoCodecAvailable(codec)
+                        SegmentedChoiceButton(
+                            title: codec.title,
+                            systemImage: codec == .automatic ? "wand.and.stars" : "film",
+                            isSelected: model.selectedVideoCodec == codec,
+                            isAvailable: available,
+                            unavailableHelp: "\(codec.title) bu çözünürlükte yok."
+                        ) {
+                            model.updateSelectedVideoCodec(codec)
+                        }
+                    }
+                }
+
                 HStack(spacing: 4) {
                     ForEach(DownloadContainer.allCases) { container in
                         let available = model.isContainerAvailable(container, for: model.selectedQuality)
@@ -41,7 +58,7 @@ struct QualityPickerView: View {
                             systemImage: container.systemImage,
                             isSelected: model.selectedContainer == container,
                             isAvailable: available,
-                            unavailableHelp: "\(model.selectedQuality.title) için \(container.title) yok."
+                            unavailableHelp: "\(model.selectedQuality.title) ve \(model.selectedVideoCodec.title) için \(container.title) yok."
                         ) {
                             model.updateSelectedContainer(container)
                         }
@@ -86,6 +103,8 @@ private struct SegmentedChoiceButton: View {
         .buttonStyle(.plain)
         .disabled(isAvailable == false)
         .help(isAvailable ? title : unavailableHelp)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var foregroundStyle: Color {

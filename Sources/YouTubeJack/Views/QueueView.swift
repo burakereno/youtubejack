@@ -305,7 +305,14 @@ private struct DownloadQueueRow: View {
         if item.quality.isAudioOnly {
             return "\(item.quality.title) · M4A"
         }
-        return "\(item.quality.title) · \(item.container.title)"
+        if let format = item.selectedMediaFormat {
+            let resolution = format.height.map { "\($0)p" } ?? item.quality.title
+            return "\(resolution) · \(format.videoCodecTitle) · \(format.audioCodecTitle) · \(item.container.title)"
+        }
+        if item.videoCodecPreference == .automatic {
+            return "\(item.quality.title) · \(item.container.title)"
+        }
+        return "\(item.quality.title) · \(item.videoCodecPreference.title) seçildi · \(item.container.title)"
     }
 
     private var sizeLabel: String {
