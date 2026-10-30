@@ -11,6 +11,14 @@ final class AppModel: ObservableObject {
     @Published var selectedQuality: QualityProfile
     @Published var selectedContainer: DownloadContainer
     @Published var selectedVideoCodec: VideoCodecPreference
+    @Published var selectedAudioLanguage = AudioLanguageSelection.original
+    @Published var subtitleOptions = SubtitleOptions() {
+        didSet {
+            if let data = try? JSONEncoder().encode(subtitleOptions) {
+                UserDefaults.standard.set(data, forKey: AppPreferenceKeys.subtitleOptions)
+            }
+        }
+    }
     @Published var queue: [DownloadItem] = []
     @Published var isQueuePaused = true
     @Published var isQueueProcessing = false
@@ -50,6 +58,10 @@ final class AppModel: ObservableObject {
         selectedContainer = DownloadContainer(rawValue: storedContainer ?? AppPreferenceDefaults.defaultContainer) ?? .mp4
         let storedCodec = UserDefaults.standard.string(forKey: AppPreferenceKeys.defaultVideoCodec)
         selectedVideoCodec = VideoCodecPreference(rawValue: storedCodec ?? AppPreferenceDefaults.defaultVideoCodec) ?? .automatic
+        if let data = UserDefaults.standard.data(forKey: AppPreferenceKeys.subtitleOptions),
+           let saved = try? JSONDecoder().decode(SubtitleOptions.self, from: data) {
+            subtitleOptions = saved
+        }
         if selectedVideoCodec == .h264 {
             selectedContainer = .mp4
             UserDefaults.standard.set(DownloadContainer.mp4.rawValue, forKey: AppPreferenceKeys.defaultContainer)
@@ -64,6 +76,7 @@ final class AppModel: ObservableObject {
 
     var canAddToQueue: Bool {
         guard media != nil else { return false }
+        if selectedQuality.isVideoQuality, subtitleOptions.isEnabled, subtitleOptions.languageCodes.isEmpty { return false }
         if media?.kind == .video, media?.formatAvailability.isKnown == false {
             return false
         }
@@ -114,7 +127,7 @@ final class AppModel: ObservableObject {
         guard
             let availability = media?.formatAvailability,
             availability.isKnown,
-            let maxHeight = availability.maxVideoHeight(codec: selectedVideoCodec)
+            let maxHeight = availability.maxVideoHeight(codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage)
         else {
             return nil
         }
@@ -125,23 +138,78 @@ final class AppModel: ObservableObject {
     }
 
     func isQualityAvailable(_ profile: QualityProfile) -> Bool {
-        media?.formatAvailability.isResolutionAvailable(profile, codec: selectedVideoCodec) ?? true
+        media?.formatAvailability.isResolutionAvailable(profile, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage) ?? true
     }
 
     func isContainerAvailable(_ container: DownloadContainer, for profile: QualityProfile) -> Bool {
         guard selectedVideoCodec.allows(container) else { return false }
-        return media?.formatAvailability.isContainerAvailable(container, for: profile, codec: selectedVideoCodec) ?? true
+        return media?.formatAvailability.isContainerAvailable(container, for: profile, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage) ?? true
     }
 
     func isVideoCodecAvailable(_ codec: VideoCodecPreference) -> Bool {
         guard selectedQuality.isVideoQuality else { return false }
-        return media?.formatAvailability.isResolutionAvailable(selectedQuality, codec: codec) ?? true
+        return media?.formatAvailability.isResolutionAvailable(selectedQuality, codec: codec, audioLanguage: selectedAudioLanguage) ?? true
     }
 
     func updateSelectedQuality(_ quality: QualityProfile) {
         selectedQuality = quality
         UserDefaults.standard.set(quality.rawValue, forKey: AppPreferenceKeys.defaultQuality)
         reconcileSelectionWithAvailability()
+    }
+
+    var audioLanguages: [AudioLanguage] {
+        if media?.kind == .playlist { return Self.playlistAudioLanguages }
+        return media?.formatAvailability.audioLanguages ?? []
+    }
+
+    private static let playlistAudioLanguages = Locale.LanguageCode.isoLanguageCodes.compactMap { code -> AudioLanguage? in
+        guard AudioLanguageSelection.isValidCode(code.identifier) else { return nil }
+        return AudioLanguage(code: code.identifier, isOriginal: false, isAutomatic: false)
+    }.sorted {
+        func priority(_ code: String) -> Int { code == "tr" ? 0 : code == "en" ? 1 : 2 }
+        let left = priority($0.code), right = priority($1.code)
+        return left == right ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : left < right
+    }
+
+    var queuedAudioLanguage: AudioLanguageSelection {
+        selectedAudioLanguage.resolved(in: media?.formatAvailability ?? .unknown)
+    }
+
+    func updateSelectedAudioLanguage(_ language: AudioLanguageSelection) {
+        selectedAudioLanguage = language
+        reconcileSelectionWithAvailability()
+    }
+
+    var subtitleLanguages: [SubtitleLanguage] {
+        guard let availability = media?.subtitleAvailability, availability.isKnown else {
+            return Self.playlistSubtitleLanguages
+        }
+        return availability.languages
+    }
+
+    private static let playlistSubtitleLanguages = SubtitleAvailability(isKnown: false, languages:
+        Locale.LanguageCode.isoLanguageCodes.map {
+            SubtitleLanguage(code: $0.identifier, hasManual: false, hasAutomatic: false)
+        }
+    ).languages
+
+    var queuedSubtitleOptions: SubtitleOptions {
+        selectedQuality.isVideoQuality ? subtitleOptions : SubtitleOptions()
+    }
+
+    func setSubtitleLanguage(_ code: String, selected: Bool) {
+        var codes = Set(subtitleOptions.languageCodes)
+        if selected { codes.insert(code) } else { codes.remove(code) }
+        subtitleOptions.languageCodes = codes.sorted()
+    }
+
+    func reconcileSubtitleSelection() {
+        guard let availability = media?.subtitleAvailability, availability.isKnown else { return }
+        let eligible = availability.languages.filter { $0.hasManual || subtitleOptions.includesAutomatic }
+        guard eligible.isEmpty == false else { return }
+        let availableCodes = Set(eligible.map(\.code))
+        let selected = subtitleOptions.languageCodes.filter { availableCodes.contains($0) }
+        subtitleOptions.languageCodes = selected.isEmpty ? [eligible[0].code] : selected
     }
 
     func updateSelectedContainer(_ container: DownloadContainer) {
@@ -286,6 +354,7 @@ final class AppModel: ObservableObject {
             return
         }
         guard parsedURL.normalizedURL != lastAnalyzedURL || media == nil else { return }
+        if parsedURL.normalizedURL != lastAnalyzedURL { selectedAudioLanguage = .original }
 
         formatTask?.cancel()
         isAnalyzing = true
@@ -358,7 +427,7 @@ final class AppModel: ObservableObject {
             }
             newItems = validSelectedEntries
                 .filter { candidate in
-                    queue.contains(where: { $0.url == candidate.normalizedURL && $0.status != .failed && $0.status != .cancelled }) == false
+                    queue.contains(where: { $0.url == candidate.normalizedURL && $0.subtitles == queuedSubtitleOptions && $0.audioLanguage == queuedAudioLanguage && $0.status != .failed && $0.status != .cancelled }) == false
                 }
                 .map { candidate in
 	                    DownloadItem(
@@ -367,6 +436,8 @@ final class AppModel: ObservableObject {
 	                        quality: selectedQuality,
 	                        container: selectedContainer,
 	                        videoCodecPreference: selectedVideoCodec,
+	                        audioLanguage: queuedAudioLanguage,
+	                        subtitles: queuedSubtitleOptions,
 	                        thumbnailURL: candidate.entry.thumbnailURL,
 	                        playlistIndex: candidate.entry.index
 	                    )
@@ -376,8 +447,8 @@ final class AppModel: ObservableObject {
                 statusMessage = AppError.invalidYouTubeURL.localizedDescription
                 return
             }
-            guard queue.contains(where: { $0.url == parsedMediaURL.normalizedURL && $0.status != .failed && $0.status != .cancelled }) == false else {
-                statusMessage = "Bu video zaten kuyrukta."
+            guard queue.contains(where: { $0.url == parsedMediaURL.normalizedURL && $0.subtitles == queuedSubtitleOptions && $0.audioLanguage == queuedAudioLanguage && $0.status != .failed && $0.status != .cancelled }) == false else {
+                statusMessage = "Bu video aynı ses dili ve altyazı seçimiyle zaten kuyrukta."
                 return
             }
             newItems = [
@@ -387,6 +458,8 @@ final class AppModel: ObservableObject {
 	                    quality: selectedQuality,
 	                    container: selectedContainer,
 	                    videoCodecPreference: selectedVideoCodec,
+	                    audioLanguage: queuedAudioLanguage,
+	                    subtitles: queuedSubtitleOptions,
 	                    thumbnailURL: media.thumbnailURL,
 	                    estimatedSizeBytes: estimatedSizeBytes(for: media)
 	                )
@@ -434,6 +507,7 @@ final class AppModel: ObservableObject {
         queue[index].eta = ""
         queue[index].fileSizeBytes = nil
         queue[index].errorMessage = nil
+        queue[index].subtitleMessage = nil
         cancelledItems.remove(item.id)
         if isQueuePaused == false {
             startQueueIfNeeded()
@@ -568,6 +642,7 @@ final class AppModel: ObservableObject {
             queue[index].eta = ""
             queue[index].selectedMediaFormat = nil
             queue[index].errorMessage = nil
+            queue[index].subtitleMessage = nil
 
             let item = queue[index]
             let outputDirectoryURL = currentDownloadDirectoryURL()
@@ -601,6 +676,16 @@ final class AppModel: ObservableObject {
                     onSelectedMediaFormat: { [weak self] format in
                         Task { @MainActor in
                             self?.setSelectedMediaFormat(format, for: item.id)
+                        }
+                    },
+                    onSubtitleMessage: { [weak self] message in
+                        Task { @MainActor in
+                            self?.setSubtitleMessage(message, for: item.id)
+                        }
+                    },
+                    onArtifactPath: { [weak self] path in
+                        Task { @MainActor in
+                            self?.trackArtifact(path, for: item.id)
                         }
                     }
                 )
@@ -650,6 +735,16 @@ final class AppModel: ObservableObject {
     private func setSelectedMediaFormat(_ format: SelectedMediaFormat?, for id: UUID) {
         guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
         queue[index].selectedMediaFormat = format
+    }
+
+    private func setSubtitleMessage(_ message: String?, for id: UUID) {
+        guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
+        queue[index].subtitleMessage = message
+    }
+
+    private func trackArtifact(_ path: String, for id: UUID) {
+        guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
+        if queue[index].outputPaths.contains(path) == false { queue[index].outputPaths.append(path) }
     }
 
     private func mark(_ id: UUID, status: DownloadState, errorMessage: String? = nil) {
@@ -714,10 +809,17 @@ final class AppModel: ObservableObject {
 
     private func reconcileSelectionWithAvailability() {
         guard let media else { return }
+        reconcileSubtitleSelection()
 
-        if media.formatAvailability.isResolutionAvailable(selectedQuality, codec: selectedVideoCodec) == false {
+        if media.kind == .video, media.formatAvailability.isKnown,
+           selectedAudioLanguage.isOriginal == false,
+           media.formatAvailability.audioLanguages.contains(where: { $0.code == selectedAudioLanguage.languageCode }) == false {
+            selectedAudioLanguage = .original
+        }
+
+        if media.formatAvailability.isResolutionAvailable(selectedQuality, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage) == false {
             selectedQuality = QualityProfile.allCases.first {
-                media.formatAvailability.isResolutionAvailable($0, codec: selectedVideoCodec)
+                media.formatAvailability.isResolutionAvailable($0, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage)
             } ?? selectedQuality
             UserDefaults.standard.set(selectedQuality.rawValue, forKey: AppPreferenceKeys.defaultQuality)
         }
@@ -725,7 +827,7 @@ final class AppModel: ObservableObject {
         guard selectedQuality.isVideoQuality else { return }
 
         if let container = media.formatAvailability.preferredContainer(
-            for: selectedQuality, preferred: selectedContainer, codec: selectedVideoCodec
+            for: selectedQuality, preferred: selectedContainer, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage
         ) {
             selectedContainer = container
             UserDefaults.standard.set(container.rawValue, forKey: AppPreferenceKeys.defaultContainer)
@@ -736,7 +838,8 @@ final class AppModel: ObservableObject {
         media.formatAvailability.estimatedDownloadSizeBytes(
             for: selectedQuality,
             container: selectedContainer,
-            codec: selectedVideoCodec
+            codec: selectedVideoCodec,
+            audioLanguage: selectedAudioLanguage
         )
     }
 
@@ -768,6 +871,7 @@ final class AppModel: ObservableObject {
     private func clearLoadedMedia() {
         formatTask?.cancel()
         media = nil
+        selectedAudioLanguage = .original
         playlistEntries = []
         lastAnalyzedURL = ""
         isAnalyzing = false

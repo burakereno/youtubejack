@@ -16,6 +16,7 @@ public struct MediaInfo: Identifiable, Equatable, Sendable {
     public let kind: MediaKind
     public let entryCount: Int
     public let formatAvailability: MediaFormatAvailability
+    public let subtitleAvailability: SubtitleAvailability
 
     public init(
         id: String,
@@ -27,7 +28,8 @@ public struct MediaInfo: Identifiable, Equatable, Sendable {
         thumbnailURL: URL?,
         kind: MediaKind,
         entryCount: Int,
-        formatAvailability: MediaFormatAvailability = .unknown
+        formatAvailability: MediaFormatAvailability = .unknown,
+        subtitleAvailability: SubtitleAvailability = .unknown
     ) {
         self.id = id
         self.sourceURL = sourceURL
@@ -39,6 +41,7 @@ public struct MediaInfo: Identifiable, Equatable, Sendable {
         self.kind = kind
         self.entryCount = entryCount
         self.formatAvailability = formatAvailability
+        self.subtitleAvailability = subtitleAvailability
     }
 }
 

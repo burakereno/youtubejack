@@ -7,6 +7,7 @@ enum AppPreferenceKeys {
     static let defaultQuality = "defaultQuality"
     static let defaultContainer = "defaultContainer"
     static let defaultVideoCodec = "defaultVideoCodec"
+    static let subtitleOptions = "subtitleOptions"
 }
 
 enum AppPreferenceDefaults {

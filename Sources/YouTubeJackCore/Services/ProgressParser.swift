@@ -16,11 +16,13 @@ public struct SelectedMediaFormat: Equatable, Sendable {
     public let height: Int?
     public let videoCodec: String
     public let audioCodec: String
+    public let audioLanguageCode: String?
 
-    public init(height: Int?, videoCodec: String, audioCodec: String) {
+    public init(height: Int?, videoCodec: String, audioCodec: String, audioLanguageCode: String? = nil) {
         self.height = height
         self.videoCodec = videoCodec
         self.audioCodec = audioCodec
+        self.audioLanguageCode = audioLanguageCode
     }
 
     public var videoCodecTitle: String {
@@ -48,8 +50,9 @@ public enum ProgressParser {
         let prefix = "download-codecs:"
         guard line.hasPrefix(prefix) else { return nil }
         let values = line.dropFirst(prefix.count).split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard values.count == 3, values[1] != "NA", values[1] != "none" else { return nil }
-        return SelectedMediaFormat(height: Int(values[0]), videoCodec: values[1], audioCodec: values[2])
+        guard (3...4).contains(values.count), values[1] != "NA", values[1] != "none" else { return nil }
+        let language = values.count == 4 && AudioLanguageSelection.isValidCode(values[3]) ? values[3] : nil
+        return SelectedMediaFormat(height: Int(values[0]), videoCodec: values[1], audioCodec: values[2], audioLanguageCode: language)
     }
 
     public static func parse(_ line: String) -> DownloadProgress? {

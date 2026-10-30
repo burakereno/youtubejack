@@ -22,6 +22,15 @@ struct QueueView: View {
                 Spacer()
 
                 Button {
+                    model.toggleQueuePlayback()
+                } label: {
+                    Label(model.queueControlTitle, systemImage: model.queueControlIcon)
+                }
+                .labelStyle(.iconOnly)
+                .disabled(model.canToggleQueue == false)
+                .help(model.queueControlTitle)
+
+                Button {
                     model.clearQueue()
                 } label: {
                     Label("Kuyruğu Boşalt", systemImage: "trash")
@@ -163,6 +172,15 @@ private struct DownloadQueueRow: View {
                     .help(error)
                     .textSelection(.enabled)
             }
+
+            if let message = item.subtitleMessage {
+                Label(message, systemImage: "captions.bubble")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .help(message)
+                    .textSelection(.enabled)
+            }
         }
         .padding(12)
         .contentShape(Rectangle())
@@ -205,6 +223,19 @@ private struct DownloadQueueRow: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+
+                if item.subtitles.isEnabled, item.quality.isVideoQuality {
+                    Label("\(item.subtitles.delivery.title) · \(item.subtitles.summary)", systemImage: "captions.bubble")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help(item.subtitles.summary)
+                }
+
+                Label(audioLanguageTitle, systemImage: "waveform")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -323,6 +354,13 @@ private struct DownloadQueueRow: View {
             return "~\(DisplayFormatters.fileSize(estimatedSizeBytes))"
         }
         return "Boyut bilinmiyor"
+    }
+
+    private var audioLanguageTitle: String {
+        if let actual = item.selectedMediaFormat?.audioLanguageCode {
+            return "Ses: \(AudioLanguageSelection(languageCode: actual, isOriginal: item.audioLanguage.isOriginal).title)"
+        }
+        return "Ses: \(item.audioLanguage.title)"
     }
 }
 

@@ -11,6 +11,9 @@ struct YTDLPInfo: Decodable {
     let thumbnail: String?
     let entries: [YTDLPEntry]?
     let formats: [YTDLPFormat]?
+    let subtitles: [String: [YTDLPSubtitle]]?
+    let automaticCaptions: [String: [YTDLPSubtitle]]?
+    let language: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -23,6 +26,9 @@ struct YTDLPInfo: Decodable {
         case thumbnail
         case entries
         case formats
+        case subtitles
+        case automaticCaptions = "automatic_captions"
+        case language
     }
 
     init(from decoder: Decoder) throws {
@@ -37,7 +43,41 @@ struct YTDLPInfo: Decodable {
         thumbnail = container.decodeStringIfPresent(forKey: .thumbnail)
         entries = try container.decodeIfPresent([YTDLPEntry].self, forKey: .entries)
         formats = try container.decodeIfPresent([YTDLPFormat].self, forKey: .formats)
+        subtitles = try container.decodeIfPresent([String: [YTDLPSubtitle]].self, forKey: .subtitles)
+        automaticCaptions = try container.decodeIfPresent([String: [YTDLPSubtitle]].self, forKey: .automaticCaptions)
+        language = container.decodeStringIfPresent(forKey: .language)
     }
+
+    var subtitleAvailability: SubtitleAvailability {
+        let manual = Set(validSubtitleCodes(subtitles).map(SubtitleLanguage.canonicalCode))
+        let automatic = Set(validSubtitleCodes(automaticCaptions).map(SubtitleLanguage.canonicalCode))
+        return SubtitleAvailability(isKnown: true, languages: manual.union(automatic).map {
+            SubtitleLanguage(code: $0, hasManual: manual.contains($0), hasAutomatic: automatic.contains($0))
+        })
+    }
+
+    func selectedSubtitles(for options: SubtitleOptions) -> [(code: String, trackCode: String, isAutomatic: Bool)] {
+        let manual = validSubtitleCodes(subtitles)
+        let automatic = validSubtitleCodes(automaticCaptions)
+        return options.languageCodes.compactMap { code in
+            let publisher = manual.filter { SubtitleLanguage.canonicalCode(for: $0) == code }
+                .sorted { left, right in left == right ? false : left == code ? true : right == code ? false : left < right }.first
+            if let publisher { return (code, publisher, false) }
+            guard options.includesAutomatic else { return nil }
+            let generated = automatic.filter { SubtitleLanguage.canonicalCode(for: $0) == code }
+                .sorted { left, right in left.hasSuffix("-orig") != right.hasSuffix("-orig") ? left.hasSuffix("-orig") : left < right }.first
+            return generated.map { (code, $0, true) }
+        }
+    }
+
+    private func validSubtitleCodes(_ tracks: [String: [YTDLPSubtitle]]?) -> [String] {
+        (tracks ?? [:]).filter { SubtitleLanguage.isValidCode($0.key) && $0.value.isEmpty == false }.map(\.key)
+    }
+}
+
+struct YTDLPSubtitle: Decodable {
+    let ext: String?
+    let name: String?
 }
 
 struct YTDLPFormat: Decodable {
@@ -48,6 +88,9 @@ struct YTDLPFormat: Decodable {
     let acodec: String?
     let filesize: Int64?
     let filesizeApprox: Int64?
+    let language: String?
+    let languagePreference: Int?
+    let formatNote: String?
 
     enum CodingKeys: String, CodingKey {
         case formatID = "format_id"
@@ -57,6 +100,9 @@ struct YTDLPFormat: Decodable {
         case acodec
         case filesize
         case filesizeApprox = "filesize_approx"
+        case language
+        case languagePreference = "language_preference"
+        case formatNote = "format_note"
     }
 
     init(from decoder: Decoder) throws {
@@ -68,6 +114,9 @@ struct YTDLPFormat: Decodable {
         acodec = container.decodeStringIfPresent(forKey: .acodec)
         filesize = container.decodeInt64IfPresent(forKey: .filesize)
         filesizeApprox = container.decodeInt64IfPresent(forKey: .filesizeApprox)
+        language = container.decodeStringIfPresent(forKey: .language)
+        languagePreference = container.decodeIntIfPresent(forKey: .languagePreference)
+        formatNote = container.decodeStringIfPresent(forKey: .formatNote)
     }
 }
 

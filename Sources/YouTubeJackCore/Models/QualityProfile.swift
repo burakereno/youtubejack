@@ -100,7 +100,25 @@ public enum QualityProfile: String, CaseIterable, Codable, Identifiable, Sendabl
         "bestaudio/best"
     }
 
-    public func formatSelector(container: DownloadContainer, codec: VideoCodecPreference = .automatic) -> String {
+    public func audioSelector(language: AudioLanguageSelection) -> String {
+        let filter = language.formatFilter
+        return "bestaudio\(filter)/best\(filter)"
+    }
+
+    public func formatSelector(container: DownloadContainer, codec: VideoCodecPreference = .automatic, audioLanguage: AudioLanguageSelection = .original) -> String {
+        if audioLanguage.languageCode != nil {
+            if isAudioOnly { return audioSelector(language: audioLanguage) }
+            let resolution: String
+            if let height {
+                resolution = "[height<=\(height)]" + (lowerExclusiveHeight.map { "[height>\($0)]" } ?? "")
+            } else {
+                resolution = ""
+            }
+            let video = "[ext=\(container.rawValue)]\(codec.formatFilter)\(resolution)"
+            let audioExt = container == .mp4 ? "m4a" : "webm"
+            // bv is video-only. bv* can retain an unrelated combined audio stream.
+            return "bv\(video)+ba[ext=\(audioExt)]\(audioLanguage.formatFilter)/b\(video)\(audioLanguage.formatFilter)"
+        }
         switch self {
         case .best:
             return bestSelector(container: container, codec: codec)

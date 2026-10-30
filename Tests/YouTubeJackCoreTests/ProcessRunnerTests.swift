@@ -41,6 +41,23 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertLessThanOrEqual(result.stdout.utf8.count, 128)
     }
 
+    func testUnboundedCapturePreservesLargeUTF8Output() async throws {
+        let output = String(repeating: "Türkçe 🎬\n", count: 100_000)
+        XCTAssertGreaterThan(output.utf8.count, 1_048_576)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try output.write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+
+        let result = try await ProcessRunner().run(
+            executablePath: "/bin/cat",
+            arguments: [file.path],
+            timeout: 5,
+            maxCollectedOutputBytes: nil
+        )
+
+        XCTAssertEqual(result.stdout, output)
+    }
+
     func testTimeoutTerminatesLongRunningProcess() async {
         let startedAt = Date()
         do {

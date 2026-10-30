@@ -20,19 +20,9 @@ struct ContentView: View {
                 Button {
                     model.toggleSettingsPanel()
                 } label: {
-                    Label("Ayarlar", systemImage: "sidebar.left")
+                    Label("Ayarlar", systemImage: "gearshape")
                 }
                 .help(model.isSettingsPanelPresented ? "Ayarları kapat" : "Ayarları aç")
-            }
-
-            ToolbarItem {
-                Button {
-                    model.toggleQueuePlayback()
-                } label: {
-                    Label(model.queueControlTitle, systemImage: model.queueControlIcon)
-                }
-                .disabled(model.canToggleQueue == false)
-                .help(model.queueControlTitle)
             }
         }
         .animation(.smooth(duration: 0.32), value: model.isSettingsPanelPresented)
@@ -91,6 +81,8 @@ struct ContentView: View {
                 if let media = model.media {
                     MediaPreviewView(media: media)
                     QualityPickerView()
+                    AudioLanguagePickerView()
+                    SubtitlePickerView()
                     DestinationPickerView()
 
                     if media.kind == .playlist {

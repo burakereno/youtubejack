@@ -25,6 +25,8 @@
 - **Native preview** — paste a YouTube video or playlist URL and fetch title, channel, duration, and thumbnail
 - **Resolution-aware choices** — only available video resolutions, codecs, and container formats are enabled
 - **Video codec control** — choose automatic, H.264, or AV1 and see the selected video and audio codecs in the queue
+- **Audio language selection** — choose original audio or an available dub, including independently selected subtitles; queue jobs retain the language and translated downloads use a language suffix in the filename
+- **Optional subtitles** — select multiple languages, prefer publisher captions, and optionally fall back to automatic captions; embed switchable subtitles in MP4/WebM or save SRT/VTT files alongside the video
 - **MP4 / WebM handling** — preserves high-quality WebM where needed and uses MP4 when available
 - **Playlist support** — select all, clear selection, and queue many playlist entries at once
 - **Queue control** — start, pause, remove, retry, and drag-drop reorder downloads
@@ -33,6 +35,10 @@
 - **yt-dlp updates** — app-managed yt-dlp updates keep the downloader current
 - **One-click app updates** — checks GitHub releases, downloads the latest DMG, and installs it
 - **Native macOS** — SwiftUI app, Developer ID release workflow, polished drag-to-Applications DMG
+
+Enable **Altyazı ekle** below the quality controls to choose **Videoya göm** (embedded tracks) or **Ayrı dosya** (SRT/VTT). Caption availability is checked per video, including playlist entries. Missing or failed captions are reported in the queue while the video remains downloaded. Subtitle preferences are saved with each queued item; audio-only downloads do not include subtitles.
+
+Use **Ses dili** to choose an existing audio track. **Orijinal** is selected for each new video. Single videos list available languages, and playlist language preferences are checked for each entry during download. If the chosen language is unavailable, that item reports an error instead of downloading another language. Audio-only downloads also honor the language selection.
 
 ## Installation
 

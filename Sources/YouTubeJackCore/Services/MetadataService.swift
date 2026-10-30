@@ -41,6 +41,7 @@ public final class MetadataService: Sendable {
 
         let ytdlp = try dependencyResolver.requireYTDLP()
         var arguments = [
+            "--ignore-config",
             "--dump-single-json",
             "--skip-download",
             "--no-warnings",
@@ -55,12 +56,22 @@ public final class MetadataService: Sendable {
         }
         arguments.append(parsed.normalizedURL)
 
-        let result = try await processRunner.run(executablePath: ytdlp, arguments: arguments)
+        // Video and playlist JSON can exceed the diagnostic output limit and must not be truncated.
+        let result = try await processRunner.run(
+            executablePath: ytdlp,
+            arguments: arguments,
+            maxCollectedOutputBytes: nil
+        )
         guard let data = result.stdout.data(using: .utf8) else {
             throw AppError.metadataDecodeFailed
         }
 
-        let decoded = try JSONDecoder().decode(YTDLPInfo.self, from: data)
+        let decoded: YTDLPInfo
+        do {
+            decoded = try JSONDecoder().decode(YTDLPInfo.self, from: data)
+        } catch is DecodingError {
+            throw AppError.metadataDecodeFailed
+        }
         return map(decoded, sourceURL: parsed.normalizedURL, isPlaylist: parsed.isPlaylist)
     }
 
@@ -96,7 +107,8 @@ public final class MetadataService: Sendable {
             thumbnailURL: info.thumbnail.flatMap(URL.init(string:)),
             kind: kind,
             entryCount: kind == .playlist ? entries.count : 1,
-            formatAvailability: mapFormats(info.formats, isPlaylist: kind == .playlist)
+            formatAvailability: mapFormats(info.formats, isPlaylist: kind == .playlist, sourceLanguageCode: info.language),
+            subtitleAvailability: kind == .playlist ? .unknown : info.subtitleAvailability
         )
         return MetadataResult(media: media, entries: entries)
     }
@@ -129,7 +141,7 @@ public final class MetadataService: Sendable {
         return MetadataResult(media: media, entries: [])
     }
 
-    private func mapFormats(_ formats: [YTDLPFormat]?, isPlaylist: Bool) -> MediaFormatAvailability {
+    private func mapFormats(_ formats: [YTDLPFormat]?, isPlaylist: Bool, sourceLanguageCode: String?) -> MediaFormatAvailability {
         guard isPlaylist == false, let formats else {
             return .unknown
         }
@@ -144,9 +156,13 @@ public final class MetadataService: Sendable {
 	                    vcodec: format.vcodec,
 	                    acodec: format.acodec,
 	                    filesize: format.filesize,
-	                    filesizeApprox: format.filesizeApprox
+	                    filesizeApprox: format.filesizeApprox,
+	                    language: format.language,
+	                    languagePreference: format.languagePreference,
+	                    formatNote: format.formatNote
 	                )
-	            }
+	            },
+	            sourceLanguageCode: sourceLanguageCode
 	        )
     }
 

@@ -34,6 +34,7 @@ public struct ProcessTimeoutError: LocalizedError, Sendable {
 public final class ProcessRunner: Sendable {
     public init() {}
 
+    /// Pass `nil` for `maxCollectedOutputBytes` when complete output is required, such as JSON.
     public func run(
         executablePath: String,
         arguments: [String],
@@ -41,7 +42,7 @@ public final class ProcessRunner: Sendable {
         onStderrLine: ((String) -> Void)? = nil,
         onProcessStarted: ((Process) -> Void)? = nil,
         timeout: TimeInterval? = 120,
-        maxCollectedOutputBytes: Int = 1_048_576,
+        maxCollectedOutputBytes: Int? = 1_048_576,
         collectOutput: Bool = true
     ) async throws -> ProcessResult {
         let runningProcess = RunningProcess()
@@ -132,7 +133,7 @@ public final class ProcessRunner: Sendable {
     private func readLines(
         from fileHandle: FileHandle,
         onLine: ((String) -> Void)?,
-        maxCollectedOutputBytes: Int,
+        maxCollectedOutputBytes: Int?,
         collectOutput: Bool,
         keepRecentOutput: Bool = false
     ) async -> String {
@@ -148,7 +149,9 @@ public final class ProcessRunner: Sendable {
                 }
 
                 let chunk = String(data: data, encoding: .utf8) ?? ""
-                if collectOutput, maxCollectedOutputBytes > 0 {
+                if collectOutput, maxCollectedOutputBytes == nil {
+                    collected.append(data)
+                } else if collectOutput, let maxCollectedOutputBytes, maxCollectedOutputBytes > 0 {
                     if keepRecentOutput {
                         // Failures usually appear at the end, after progress and warnings.
                         collected.append(contentsOf: data.suffix(maxCollectedOutputBytes))
