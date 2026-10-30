@@ -1,7 +1,7 @@
 # YouTubeJack
 
 <p align="center">
-  <img src="docs/icon.png" alt="YouTubeJack" width="340" height="340">
+  <img src="https://youtubejack.burakerenoglu.com/apps/youtubejack/icon-rounded-20261030.webp" alt="YouTubeJack" width="340" height="340">
 </p>
 
 **Native macOS YouTube downloader.** Paste a video or playlist link, preview it, choose an available resolution and format, then download through a simple native queue.
