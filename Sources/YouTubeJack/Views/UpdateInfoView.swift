@@ -177,7 +177,7 @@ private struct YTDLPUpdateSection: View {
                 .controlSize(.large)
                 .modifier(FlexibleControlSizing())
                 .frame(height: AppControlMetrics.height)
-                .disabled(model.isUpdatingYTDLP)
+                .disabled(model.canUpdateYTDLP == false)
             }
 
             if let message = model.ytdlpUpdateMessage {

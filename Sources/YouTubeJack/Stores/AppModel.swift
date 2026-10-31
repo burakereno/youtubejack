@@ -67,12 +67,12 @@ final class AppModel: ObservableObject {
     private var formatAnalysisID = UUID()
 
     init(dependencyResolver resolver: DependencyResolver = DependencyResolver(), defaults: UserDefaults = .standard,
-         metadataClient: MetadataClient? = nil) {
+         metadataClient: MetadataClient? = nil, ytdlpUpdateService: YTDLPUpdateService? = nil) {
         self.defaults = defaults
         dependencyResolver = resolver
         self.metadataClient = metadataClient ?? MetadataClient(service: MetadataService(dependencyResolver: resolver))
         downloadService = DownloadService(dependencyResolver: resolver)
-        ytdlpUpdateService = YTDLPUpdateService(dependencyResolver: resolver)
+        self.ytdlpUpdateService = ytdlpUpdateService ?? YTDLPUpdateService(dependencyResolver: resolver)
         dependencyStatus = resolver.resolveStatus()
 
         let storedQuality = defaults.string(forKey: AppPreferenceKeys.defaultQuality)
@@ -392,6 +392,12 @@ final class AppModel: ObservableObject {
         ytdlpInstalledVersion = await ytdlpUpdateService.installedVersion()
     }
 
+    var canUpdateYTDLP: Bool {
+        guard isUpdatingYTDLP == false, let latest = ytdlpLatestVersion, latest.isEmpty == false else { return false }
+        guard let installed = ytdlpInstalledVersion, installed.isEmpty == false else { return true }
+        return latest.compare(installed, options: .numeric) == .orderedDescending
+    }
+
     func checkYTDLPUpdate() async {
         guard isUpdatingYTDLP == false else { return }
         isUpdatingYTDLP = true
@@ -405,7 +411,7 @@ final class AppModel: ObservableObject {
             let latestRelease = try await ytdlpUpdateService.latestRelease()
             ytdlpLatestVersion = latestRelease.version
 
-            if installedVersion == latestRelease.version {
+            if let installedVersion, latestRelease.version.compare(installedVersion, options: .numeric) != .orderedDescending {
                 ytdlpUpdateMessage = L10n.string("yt-dlp is up to date.")
             } else if installedVersion == nil {
                 ytdlpUpdateMessage = L10n.string("yt-dlp is ready to download.")
@@ -418,7 +424,7 @@ final class AppModel: ObservableObject {
     }
 
     func updateYTDLP() async {
-        guard isUpdatingYTDLP == false else { return }
+        guard canUpdateYTDLP else { return }
         isUpdatingYTDLP = true
         defer { isUpdatingYTDLP = false }
         ytdlpUpdateMessage = L10n.string("Downloading yt-dlp…")
