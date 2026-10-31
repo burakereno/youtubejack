@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    weak var model: AppModel?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
@@ -11,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         UpdateChecker.shared.stop()
+        model?.stopYTDLPUpdateChecks()
     }
 }
 
@@ -28,6 +30,8 @@ struct YouTubeJackApp: App {
             ContentView()
                 .environmentObject(model)
                 .environment(\.locale, AppLanguageSettings.shared.language.locale)
+                .onAppear { appDelegate.model = model }
+                .task { await model.startYTDLPUpdateChecks() }
         }
         .defaultSize(width: 1160, height: 740)
         .commands {

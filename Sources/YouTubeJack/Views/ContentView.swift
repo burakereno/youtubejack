@@ -39,6 +39,7 @@ struct ContentView: View {
         }
         .toolbar {
             updateToolbarItem
+            ytdlpUpdateToolbarItem
 
             ToolbarItemGroup(placement: .automatic) {
                 Button {
@@ -78,6 +79,22 @@ struct ContentView: View {
             } else {
                 ToolbarItem(placement: .automatic) {
                     ToolbarUpdateButton()
+                }
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var ytdlpUpdateToolbarItem: some ToolbarContent {
+        if model.shouldShowYTDLPToolbarUpdate {
+            if #available(macOS 26.0, *) {
+                ToolbarItem(placement: .automatic) {
+                    ToolbarYTDLPUpdateButton()
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .automatic) {
+                    ToolbarYTDLPUpdateButton()
                 }
             }
         }

@@ -60,7 +60,11 @@ struct UpdateInfoView: View {
             guard isPresented else { return }
             model.refreshDependencies()
             await UpdateChecker.shared.checkForUpdates(force: true)
-            await model.checkYTDLPUpdate()
+            // Keep a running update or its failure visible when opened from
+            // the toolbar. The manual check remains available in this panel.
+            if model.shouldShowYTDLPToolbarUpdate == false {
+                await model.checkYTDLPUpdate()
+            }
         }
     }
 }
@@ -180,8 +184,13 @@ private struct YTDLPUpdateSection: View {
                 .disabled(model.canUpdateYTDLP == false)
             }
 
-            if let message = model.ytdlpUpdateMessage {
-                UpdateActivityStatus(message: message, isBusy: model.isUpdatingYTDLP)
+            if model.isUpdatingYTDLP {
+                UpdateActivityStatus(
+                    message: model.isInstallingYTDLP ? L10n.string("Updating yt-dlp…") : L10n.string("Checking yt-dlp…"),
+                    isBusy: true
+                )
+            } else if let message = model.ytdlpUpdateMessage {
+                UpdateActivityStatus(message: message)
             }
         }
     }

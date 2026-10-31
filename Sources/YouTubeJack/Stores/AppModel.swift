@@ -5,6 +5,8 @@ import YouTubeJackCore
 
 @MainActor
 final class AppModel: ObservableObject {
+    typealias YTDLPUpdateTimerFactory = @MainActor (TimeInterval, @escaping @MainActor @Sendable () async -> Void) -> Timer
+
     @Published var inputURL = "" {
         didSet {
             guard inputURL != oldValue else { return }
@@ -45,6 +47,7 @@ final class AppModel: ObservableObject {
     @Published var ytdlpLatestVersion: String?
     @Published var ytdlpUpdateMessage: String?
     @Published var isUpdatingYTDLP = false
+    @Published private(set) var isInstallingYTDLP = false
     @Published var isSettingsPanelPresented = false
     @Published var isUpdatePanelPresented = false
     @Published private(set) var isPreparingAppUpdate = false
@@ -55,6 +58,9 @@ final class AppModel: ObservableObject {
     private let metadataClient: MetadataClient
     private let downloadService: DownloadService
     private let ytdlpUpdateService: YTDLPUpdateService
+    private let ytdlpUpdateTimerFactory: YTDLPUpdateTimerFactory
+    private var ytdlpUpdateTimer: Timer?
+    private var ytdlpVersionReadID = UUID()
     private let artifactCleaner = DownloadArtifactCleaner()
     private var analyzeTask: Task<Void, Never>?
     private var formatTask: Task<Void, Never>?
@@ -67,12 +73,16 @@ final class AppModel: ObservableObject {
     private var formatAnalysisID = UUID()
 
     init(dependencyResolver resolver: DependencyResolver = DependencyResolver(), defaults: UserDefaults = .standard,
-         metadataClient: MetadataClient? = nil, ytdlpUpdateService: YTDLPUpdateService? = nil) {
+         metadataClient: MetadataClient? = nil, ytdlpUpdateService: YTDLPUpdateService? = nil,
+         ytdlpUpdateTimerFactory: @escaping YTDLPUpdateTimerFactory = { interval, action in
+             AppModel.makeYTDLPUpdateTimer(interval: interval, action: action)
+         }) {
         self.defaults = defaults
         dependencyResolver = resolver
         self.metadataClient = metadataClient ?? MetadataClient(service: MetadataService(dependencyResolver: resolver))
         downloadService = DownloadService(dependencyResolver: resolver)
         self.ytdlpUpdateService = ytdlpUpdateService ?? YTDLPUpdateService(dependencyResolver: resolver)
+        self.ytdlpUpdateTimerFactory = ytdlpUpdateTimerFactory
         dependencyStatus = resolver.resolveStatus()
 
         let storedQuality = defaults.string(forKey: AppPreferenceKeys.defaultQuality)
@@ -389,21 +399,59 @@ final class AppModel: ObservableObject {
     }
 
     func refreshYTDLPVersion() async {
-        ytdlpInstalledVersion = await ytdlpUpdateService.installedVersion()
+        guard isInstallingYTDLP == false else { return }
+        let readID = ytdlpVersionReadID
+        let version = await ytdlpUpdateService.installedVersion()
+        guard readID == ytdlpVersionReadID, isInstallingYTDLP == false else { return }
+        ytdlpInstalledVersion = version
     }
 
     var canUpdateYTDLP: Bool {
-        guard isUpdatingYTDLP == false, let latest = ytdlpLatestVersion, latest.isEmpty == false else { return false }
+        guard isUpdatingYTDLP == false, isPreparingAppUpdate == false,
+              let latest = ytdlpLatestVersion, latest.isEmpty == false else { return false }
         guard let installed = ytdlpInstalledVersion, installed.isEmpty == false else { return true }
         return latest.compare(installed, options: .numeric) == .orderedDescending
     }
 
+    var shouldShowYTDLPToolbarUpdate: Bool {
+        if isInstallingYTDLP { return true }
+        guard let installed = ytdlpInstalledVersion, installed.isEmpty == false,
+              let latest = ytdlpLatestVersion, latest.isEmpty == false else { return false }
+        return latest.compare(installed, options: .numeric) == .orderedDescending
+    }
+
+    func startYTDLPUpdateChecks() async {
+        guard ytdlpUpdateTimer == nil else { return }
+        ytdlpUpdateTimer = ytdlpUpdateTimerFactory(2 * 60 * 60) { [weak self] in
+            await self?.checkYTDLPUpdate(reportsStatus: false)
+        }
+        await checkYTDLPUpdate(reportsStatus: false)
+    }
+
+    func stopYTDLPUpdateChecks() {
+        ytdlpUpdateTimer?.invalidate()
+        ytdlpUpdateTimer = nil
+    }
+
+    private static func makeYTDLPUpdateTimer(interval: TimeInterval, action: @escaping @MainActor @Sendable () async -> Void) -> Timer {
+        let timer = Timer(timeInterval: interval, repeats: true) { _ in
+            Task { @MainActor in await action() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        return timer
+    }
+
     func checkYTDLPUpdate() async {
+        await checkYTDLPUpdate(reportsStatus: true)
+    }
+
+    private func checkYTDLPUpdate(reportsStatus: Bool) async {
         guard isUpdatingYTDLP == false else { return }
         isUpdatingYTDLP = true
-        ytdlpUpdateMessage = L10n.string("Checking yt-dlp…")
+        if reportsStatus { ytdlpUpdateMessage = L10n.string("Checking yt-dlp…") }
         defer { isUpdatingYTDLP = false }
 
+        ytdlpVersionReadID = UUID()
         let installedVersion = await ytdlpUpdateService.installedVersion()
         ytdlpInstalledVersion = installedVersion
 
@@ -411,6 +459,7 @@ final class AppModel: ObservableObject {
             let latestRelease = try await ytdlpUpdateService.latestRelease()
             ytdlpLatestVersion = latestRelease.version
 
+            guard reportsStatus else { return }
             if let installedVersion, latestRelease.version.compare(installedVersion, options: .numeric) != .orderedDescending {
                 ytdlpUpdateMessage = L10n.string("yt-dlp is up to date.")
             } else if installedVersion == nil {
@@ -419,14 +468,21 @@ final class AppModel: ObservableObject {
                 ytdlpUpdateMessage = L10n.string("New version available: %@", defaultValue: "New version available: \(latestRelease.version)")
             }
         } catch {
-            ytdlpUpdateMessage = L10n.string("Could not check the latest version: %@", defaultValue: "Could not check the latest version: \(error.localizedDescription)")
+            if reportsStatus {
+                ytdlpUpdateMessage = L10n.string("Could not check the latest version: %@", defaultValue: "Could not check the latest version: \(error.localizedDescription)")
+            }
         }
     }
 
     func updateYTDLP() async {
         guard canUpdateYTDLP else { return }
+        ytdlpVersionReadID = UUID()
         isUpdatingYTDLP = true
-        defer { isUpdatingYTDLP = false }
+        isInstallingYTDLP = true
+        defer {
+            isUpdatingYTDLP = false
+            isInstallingYTDLP = false
+        }
         ytdlpUpdateMessage = L10n.string("Downloading yt-dlp…")
 
         do {

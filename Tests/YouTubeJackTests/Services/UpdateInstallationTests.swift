@@ -111,6 +111,9 @@ struct UpdateInstallationTests {
         #expect(updater.isInstalling)
         #expect(model.isPreparingAppUpdate)
         #expect(model.canInstallAppUpdate == false)
+        model.ytdlpInstalledVersion = "2026.08.19"
+        model.ytdlpLatestVersion = "2026.10.26"
+        #expect(model.canUpdateYTDLP == false)
         #expect(updater.lastError == nil)
     }
 

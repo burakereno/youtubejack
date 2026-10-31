@@ -221,3 +221,6 @@
 "yt-dlp release URL verification failed." = "yt-dlp release URL verification failed.";
 "yt-dlp was not found" = "yt-dlp was not found";
 "%lld videos" = "%lld videos";
+"Update yt-dlp" = "Update yt-dlp";
+"Updating yt-dlp…" = "Updating yt-dlp…";
+"Download and install yt-dlp %@" = "Download and install yt-dlp %@";

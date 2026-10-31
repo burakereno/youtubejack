@@ -8,13 +8,13 @@ struct YTDLPUpdateAvailabilityTests {
     @Test(arguments: [
         AvailabilityCase(installed: "2026.10.26", latest: "2026.10.26", enabled: false),
         AvailabilityCase(installed: "2026.10.27", latest: "2026.10.26", enabled: false),
-        AvailabilityCase(installed: "2026.10.9", latest: "2026.10.26", enabled: true),
-        AvailabilityCase(installed: "2026.10.26", latest: "2026.10.27", enabled: true),
+        AvailabilityCase(installed: "2026.10.9", latest: "2026.10.26", enabled: true, toolbarVisible: true),
+        AvailabilityCase(installed: "2026.10.26", latest: "2026.10.27", enabled: true, toolbarVisible: true),
         AvailabilityCase(installed: "2026.10.26", latest: nil, enabled: false),
         AvailabilityCase(installed: "2026.10.26", latest: "", enabled: false),
         AvailabilityCase(installed: nil, latest: "2026.10.26", enabled: true),
         AvailabilityCase(installed: nil, latest: nil, enabled: false),
-        AvailabilityCase(installed: "2026.10.26", latest: "2026.10.27", busy: true, enabled: false)
+        AvailabilityCase(installed: "2026.10.26", latest: "2026.10.27", busy: true, enabled: false, toolbarVisible: true)
     ])
     func updateRequiresANewerKnownReleaseOrAMissingTool(scenario: AvailabilityCase) throws {
         let fixture = try UpdateAvailabilityFixture()
@@ -24,6 +24,7 @@ struct YTDLPUpdateAvailabilityTests {
         model.ytdlpLatestVersion = scenario.latest
         model.isUpdatingYTDLP = scenario.busy
         #expect(model.canUpdateYTDLP == scenario.enabled)
+        #expect(model.shouldShowYTDLPToolbarUpdate == scenario.toolbarVisible)
     }
 
     @Test(arguments: [
@@ -51,6 +52,7 @@ struct YTDLPUpdateAvailabilityTests {
         let latest: String?
         var busy = false
         let enabled: Bool
+        var toolbarVisible = false
     }
 }
 

@@ -30,7 +30,7 @@ struct UpdateButton: View {
         .controlSize(.large)
         .modifier(FlexibleControlSizing())
         .frame(height: AppControlMetrics.height)
-        .disabled(updater.isDownloading || updater.isInstalling)
+        .disabled(updater.isDownloading || updater.isInstalling || model.isInstallingYTDLP)
         .help(updater.isDownloading ? L10n.string("Downloading update") : L10n.string("Download and install YouTubeJack %@", defaultValue: "Download and install YouTubeJack \(version)"))
     }
 }

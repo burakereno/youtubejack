@@ -22,14 +22,21 @@ struct ToolbarUpdateButton: View {
                 Label(L10n.string("Update"), systemImage: "arrow.down.circle.fill")
             }
         }
-        .labelStyle(.titleAndIcon)
-        .modifier(NativeProminentButton())
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
-        .tint(.green)
-        .disabled(updater.isDownloading || updater.isInstalling)
+        .modifier(ToolbarUpdateButtonStyle())
+        .disabled(updater.isDownloading || updater.isInstalling || model.isInstallingYTDLP)
         .help(updater.isPreviewingUpdate
               ? L10n.string("Update button preview; opens the info panel")
               : L10n.string("Download and install YouTubeJack %@", defaultValue: "Download and install YouTubeJack \(updater.latestVersion ?? "")"))
+    }
+}
+
+struct ToolbarUpdateButtonStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .labelStyle(.titleAndIcon)
+            .modifier(NativeProminentButton())
+            .buttonBorderShape(.capsule)
+            .controlSize(.large)
+            .tint(.green)
     }
 }

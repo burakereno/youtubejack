@@ -221,3 +221,6 @@
 "yt-dlp release URL verification failed." = "yt-dlp release URL doğrulaması başarısız.";
 "yt-dlp was not found" = "yt-dlp bulunamadı";
 "%lld videos" = "%lld video";
+"Update yt-dlp" = "yt-dlp’yi güncelle";
+"Updating yt-dlp…" = "yt-dlp güncelleniyor…";
+"Download and install yt-dlp %@" = "yt-dlp %@ sürümünü indir ve kur";

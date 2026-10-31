@@ -37,6 +37,7 @@
 - **File cleanup** — cancelled and failed partial downloads are cleaned without touching unrelated files
 - **Bundled runtime tools** — ships with yt-dlp and ffmpeg, so users do not need Homebrew
 - **yt-dlp updates** — app-managed yt-dlp updates keep the downloader current
+- **yt-dlp update notice** — silently checks at launch and every two hours; a green **Update yt-dlp** button appears beside the app update control when a newer yt-dlp version is available, shows update activity, and disappears after a successful installation
 - **One-click app updates** — checks GitHub releases, downloads the latest DMG, and installs it
 - **Native macOS** — SwiftUI app, Developer ID release workflow, polished drag-to-Applications DMG
 
