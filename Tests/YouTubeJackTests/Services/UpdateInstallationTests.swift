@@ -13,7 +13,7 @@ struct UpdateInstallationTests {
         let server = Process()
         server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         server.arguments = ["-u", "-c", """
-        import http.server,sys
+        import http.server,os,sys
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 self.send_response(200)
@@ -22,7 +22,8 @@ struct UpdateInstallationTests {
                 self.wfile.write(b'abc')
             def log_message(self,*args): pass
         server=http.server.HTTPServer(('127.0.0.1',0),Handler)
-        with open(sys.argv[1],'w') as f: f.write(str(server.server_port))
+        with open(sys.argv[1]+'.tmp','w') as f: f.write(str(server.server_port))
+        os.replace(sys.argv[1]+'.tmp',sys.argv[1])
         server.serve_forever()
         """, portFile.path]
         server.standardOutput = FileHandle.nullDevice
@@ -31,7 +32,7 @@ struct UpdateInstallationTests {
         defer { if server.isRunning { server.terminate(); server.waitUntilExit() } }
         let deadline = ContinuousClock.now + .seconds(5)
         while FileManager.default.fileExists(atPath: portFile.path) == false, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
-        let port = try String(contentsOf: portFile)
+        let port = try #require(UInt16(try String(contentsOf: portFile)), "The test server must publish a complete port number")
         let url = try #require(URL(string: "http://127.0.0.1:\(port)/fixture.dmg"))
         let artifact = try await UpdateArtifactDownloader.download(from: url, onProgress: { _ in })
         defer { UpdateArtifactDownloader.removeArtifact(at: artifact) }

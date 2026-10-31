@@ -123,6 +123,7 @@ jobs:
           ./scripts/build-app.sh
 
       - name: Test App and Runtime Workflows
+        timeout-minutes: 8
         env:
           YOUTUBEJACK_TEST_YTDLP: ${{ github.workspace }}/.build/YouTubeJack.app/Contents/Resources/bin/yt-dlp
           YOUTUBEJACK_TEST_FFMPEG: ${{ github.workspace }}/.build/YouTubeJack.app/Contents/Resources/bin/ffmpeg

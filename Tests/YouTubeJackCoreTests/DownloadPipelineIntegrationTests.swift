@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Testing
 @testable import YouTubeJackCore
 
@@ -6,7 +7,16 @@ struct DownloadPipelineIntegrationTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_YTDLP"] != nil && ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_FFMPEG"] != nil), .timeLimit(.minutes(1)))
     func realToolsKeepSameTitleVideosSeparateAndReportConvertedAudio() async throws {
         let fixture = try await LocalMediaFixture()
-        defer { fixture.clean() }
+        do {
+            try await verifyDownloads(using: fixture)
+        } catch {
+            await fixture.clean()
+            throw error
+        }
+        await fixture.clean()
+    }
+
+    private func verifyDownloads(using fixture: LocalMediaFixture) async throws {
         let service = DownloadService(dependencyResolver: fixture.resolver)
         var published: [String] = []
         for id in ["AAAAAAAAAAA", "BBBBBBBBBBB"] {
@@ -68,7 +78,8 @@ private struct LocalMediaFixture {
         class Handler(http.server.SimpleHTTPRequestHandler):
             def log_message(self,*args): pass
         server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
-        with open(sys.argv[2],'w') as f: f.write(str(server.server_port))
+        with open(sys.argv[2]+'.tmp','w') as f: f.write(str(server.server_port))
+        os.replace(sys.argv[2]+'.tmp',sys.argv[2])
         server.serve_forever()
         """, root.path, portFile.path]
         server.standardOutput = FileHandle.nullDevice
@@ -76,7 +87,7 @@ private struct LocalMediaFixture {
         try server.run()
         let deadline = ContinuousClock.now + .seconds(5)
         while FileManager.default.fileExists(atPath: portFile.path) == false, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
-        let port = try String(contentsOf: portFile)
+        let port = try #require(UInt16(try String(contentsOf: portFile)), "The test server must publish a complete port number")
         for id in ["AAAAAAAAAAA", "BBBBBBBBBBB", "CCCCCCCCCCC"] {
             let audioOnly = id == "CCCCCCCCCCC"
             let ext = audioOnly ? "webm" : "mp4"
@@ -101,8 +112,15 @@ private struct LocalMediaFixture {
         try FileManager.default.createSymbolicLink(at: bin.appendingPathComponent("ffmpeg"), withDestinationURL: URL(fileURLWithPath: ffmpeg))
     }
 
-    func clean() {
-        if server.isRunning { server.terminate(); server.waitUntilExit() }
+    func clean() async {
+        if server.isRunning { server.terminate() }
+        // Foundation's synchronous waitUntilExit can miss the exit notification
+        // on a Swift executor thread. Keep teardown cancellable and bounded.
+        let deadline = ContinuousClock.now + .seconds(1)
+        while server.isRunning, ContinuousClock.now < deadline, Task.isCancelled == false {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        if server.isRunning { kill(server.processIdentifier, SIGKILL) }
         try? FileManager.default.removeItem(at: root)
     }
 }
