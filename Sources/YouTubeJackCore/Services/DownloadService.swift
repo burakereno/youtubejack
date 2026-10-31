@@ -103,10 +103,10 @@ public final class DownloadService {
                             onSubtitleMessage(result.message)
                         } catch {
                             try checkCancellation()
-                            onSubtitleMessage("Altyazı eklenemedi; video indirildi. \(error.localizedDescription)")
+                            onSubtitleMessage(L10n.string("Could not add subtitles; the video was downloaded. %@", defaultValue: "Could not add subtitles; the video was downloaded. \(error.localizedDescription)"))
                         }
                     } else {
-                        onSubtitleMessage("Altyazı eklenemedi: video dosyasının yolu bulunamadı.")
+                        onSubtitleMessage(L10n.string("Could not add subtitles: the video file path was not found."))
                     }
                 }
                 DownloadArtifactCleaner().removeWorkspace(at: workspace.directory.path, itemID: item.id)
@@ -123,7 +123,7 @@ public final class DownloadService {
                 if item.audioLanguage.languageCode != nil,
                    error.localizedDescription.localizedCaseInsensitiveContains("requested format is not available") {
                     unavailableAudioError = AppError.processFailed(
-                        "\(item.audioLanguage.title) ses bu videoda seçilen kalite ve formatta bulunamadı. Farklı bir kalite, format veya ses dili seçin."
+                        L10n.string("%@ audio is unavailable at the selected quality and format. Choose another quality, format, or audio language.", defaultValue: "\(item.audioLanguage.title) audio is unavailable at the selected quality and format. Choose another quality, format, or audio language.")
                     )
                     continue
                 }
@@ -131,7 +131,7 @@ public final class DownloadService {
                 if item.videoCodecPreference != .automatic,
                    error.localizedDescription.localizedCaseInsensitiveContains("requested format is not available") {
                     throw AppError.processFailed(
-                        "\(item.videoCodecPreference.title) bu videoda seçilen çözünürlük ve formatta bulunamadı."
+                        L10n.string("%@ is unavailable at the selected resolution and format.", defaultValue: "\(item.videoCodecPreference.title) is unavailable at the selected resolution and format.")
                     )
                 }
 
@@ -143,14 +143,14 @@ public final class DownloadService {
 
         if let firstForbiddenError {
             throw AppError.processFailed(
-                "YouTube bu medya akışını reddetti (403). Alternatif formatlar denendi. Son hata: \(firstForbiddenError.localizedDescription)"
+                L10n.string("YouTube rejected this media stream (403). Alternative formats were tried. Last error: %@", defaultValue: "YouTube rejected this media stream (403). Alternative formats were tried. Last error: \(firstForbiddenError.localizedDescription)")
             )
         }
 
         if let unavailableAudioError { throw unavailableAudioError }
 
         throw AppError.processFailed(
-            "YouTube bu medya akışını reddetti (403). Alternatif formatlar denendi. yt-dlp güncellemesi veya farklı format gerekebilir."
+            L10n.string("YouTube rejected this media stream (403). Alternative formats were tried. Update yt-dlp or choose another format.")
         )
     }
 

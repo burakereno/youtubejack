@@ -4,7 +4,7 @@ public enum SubtitleDelivery: String, CaseIterable, Codable, Identifiable, Senda
     case embedded
     case separateFile
     public var id: String { rawValue }
-    public var title: String { self == .embedded ? "Videoya ekle" : "Ayrı dosya kaydet" }
+    public var title: String { self == .embedded ? L10n.string("Embed in video") : L10n.string("Save separate file") }
 }
 
 public enum SubtitleFormat: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -46,22 +46,23 @@ public struct SubtitleOptions: Equatable, Codable, Sendable {
 
 public struct SubtitleLanguage: Identifiable, Equatable, Sendable {
     public let code: String
-    public let name: String
+    private let providedName: String?
+    public var name: String { providedName ?? Self.localizedName(for: code) }
     public let hasManual: Bool
     public let hasAutomatic: Bool
     public var id: String { code }
 
     public init(code: String, name: String? = nil, hasManual: Bool, hasAutomatic: Bool) {
         self.code = code
-        self.name = name ?? Self.localizedName(for: code)
+        self.providedName = name
         self.hasManual = hasManual
         self.hasAutomatic = hasAutomatic
     }
 
     public static func localizedName(for code: String) -> String {
         let base = code.replacingOccurrences(of: "-orig", with: "")
-        let name = Locale(identifier: "tr").localizedString(forIdentifier: base) ?? base
-        return code.hasSuffix("-orig") ? "\(name) (orijinal)" : name
+        let name = L10n.locale.localizedString(forIdentifier: base) ?? base
+        return code.hasSuffix("-orig") ? L10n.string("%@ (original)", defaultValue: "\(name) (original)") : name
     }
 
     public static func canonicalCode(for code: String) -> String {
@@ -79,7 +80,7 @@ public struct SubtitleLanguage: Identifiable, Equatable, Sendable {
     }
 
     public var sourceTitle: String {
-        hasManual ? "Yayıncı" : "Otomatik / çeviri"
+        hasManual ? L10n.string("Publisher") : L10n.string("Automatic / translated")
     }
 
     /// ffmpeg/MP4 use ISO 639-2 codes for track language metadata.

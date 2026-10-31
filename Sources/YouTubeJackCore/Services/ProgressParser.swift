@@ -37,7 +37,7 @@ public struct SelectedMediaFormat: Equatable, Sendable {
 
     public var audioCodecTitle: String {
         let codec = audioCodec.lowercased()
-        if codec == "na" || codec == "none" { return "Ses bilinmiyor" }
+        if codec == "na" || codec == "none" { return L10n.string("Unknown audio") }
         if codec.hasPrefix("mp4a") || codec.hasPrefix("aac") { return "AAC" }
         if codec.hasPrefix("opus") { return "Opus" }
         if codec.hasPrefix("vorbis") { return "Vorbis" }

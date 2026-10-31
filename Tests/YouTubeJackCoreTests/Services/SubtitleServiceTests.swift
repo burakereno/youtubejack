@@ -19,7 +19,7 @@ struct SubtitleServiceTests {
         ])
         var message: String?
         _ = try await fixture.download(options: SubtitleOptions(isEnabled: true, languageCodes: ["en", "tr"]), message: { message = $0 })
-        #expect(message?.contains("videoya eklendi") == true)
+        #expect(message?.contains("Subtitles embedded") == true)
         for (index, code) in ["en", "tr"].enumerated() {
             let caption = try await runner.run(executablePath: ffmpeg, arguments: [
                 "-nostdin", "-hide_banner", "-loglevel", "error", "-i", fixture.video.path,
@@ -39,7 +39,7 @@ struct SubtitleServiceTests {
         let path = try await fixture.download(options: options, message: { message = $0 })
         #expect(path == fixture.video.path)
         #expect(try String(contentsOf: fixture.video) == "embedded")
-        #expect(message?.contains("videoya eklendi") == true)
+        #expect(message?.contains("Subtitles embedded") == true)
         #expect(try fixture.outputNames == [fixture.video.lastPathComponent])
         let args = try String(contentsOf: fixture.root.appendingPathComponent("ffmpeg-arguments"))
         #expect(args.contains(container == .mp4 ? "mov_text" : "webvtt"))
@@ -59,7 +59,7 @@ struct SubtitleServiceTests {
         )
         #expect(try fixture.outputNames == ["Video.en.\(format.rawValue)", "Video.mp4"])
         #expect(try String(contentsOf: fixture.video) == "original")
-        #expect(message?.contains("Bulunamayan altyazı") == true)
+        #expect(message?.contains("Missing subtitles") == true)
         #expect(artifacts == [fixture.output.appendingPathComponent("Video.en.\(format.rawValue)").path])
     }
 
@@ -83,7 +83,7 @@ struct SubtitleServiceTests {
         var message: String?
         _ = try await fixture.download(options: SubtitleOptions(isEnabled: true, languageCodes: ["en"], includesAutomatic: false, delivery: .separateFile), message: { message = $0 })
         #expect(try String(contentsOf: existing) == "user captions")
-        #expect(message?.contains("korundu") == true)
+        #expect(message?.contains("were preserved") == true)
         let args = try String(contentsOf: fixture.root.appendingPathComponent("subtitle-arguments"))
         #expect(args.contains("--no-write-auto-subs"))
         #expect(args.contains("--write-auto-subs\n") == false)
@@ -95,8 +95,8 @@ struct SubtitleServiceTests {
         var message: String?
         _ = try await fixture.download(options: SubtitleOptions(isEnabled: true, languageCodes: ["en", "tr"], delivery: .separateFile), message: { message = $0 })
         #expect(try fixture.outputNames == ["Video.en.srt", "Video.mp4"])
-        #expect(message?.contains("Bulunamayan altyazı") == true)
-        #expect(message?.contains("indirilemedi") == true)
+        #expect(message?.contains("Missing subtitles") == true)
+        #expect(message?.contains("could not be downloaded") == true)
     }
 
     @Test func pauseBeforeCaptionProcessStartsPropagatesCancellation() async throws {
@@ -108,7 +108,7 @@ struct SubtitleServiceTests {
             _ = try await service.download(
                 item: DownloadItem(url: "https://www.youtube.com/watch?v=j8qdnqwjRJA", title: "Video", quality: .q1080, container: .mp4, subtitles: SubtitleOptions(isEnabled: true, languageCodes: ["en"])),
                 outputDirectory: fixture.output.path, onProgress: { _ in }, onOutputPath: { _ in },
-                onSubtitleMessage: { if $0 == "Altyazılar indiriliyor…" { service.cancelCurrentDownload() } }
+                onSubtitleMessage: { if $0 == "Downloading subtitles…" { service.cancelCurrentDownload() } }
             )
             Issue.record("Pause must stop before the caption process starts.")
         } catch is CancellationError {

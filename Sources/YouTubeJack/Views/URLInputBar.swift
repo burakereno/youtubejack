@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import SwiftUI
 
 struct URLInputBar: View {
@@ -21,7 +22,7 @@ struct URLInputBar: View {
             Button {
                 model.clearCurrentInput()
             } label: {
-                Label("Temizle", systemImage: "xmark")
+                Label(L10n.string("Clear"), systemImage: "xmark")
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
@@ -30,7 +31,7 @@ struct URLInputBar: View {
             .modifier(FlexibleControlSizing())
             .frame(width: AppControlMetrics.height, height: AppControlMetrics.height)
             .disabled(model.inputURL.isEmpty)
-            .help("Temizle")
+            .help(L10n.string("Clear"))
         }
     }
 }

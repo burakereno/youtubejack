@@ -22,7 +22,7 @@ struct SubtitleService {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        onMessage("Altyazılar kontrol ediliyor…")
+        onMessage(L10n.string("Checking subtitles…"))
         var metadataArguments = ["--ignore-config", "--no-playlist", "--no-cache-dir", "--skip-download", "--dump-single-json", "--no-warnings", "--socket-timeout", "20", "--retries", "2"]
         metadataArguments.append(contentsOf: dependencyResolver.javaScriptRuntimeArguments())
         metadataArguments.append(item.url)
@@ -30,7 +30,7 @@ struct SubtitleService {
         let info = try JSONDecoder().decode(YTDLPInfo.self, from: Data(metadata.stdout.utf8))
         let tracks = info.selectedSubtitles(for: options)
         guard tracks.isEmpty == false else {
-            return SubtitleResult(message: "Bulunamayan altyazı: \(options.summary). Video altyazısız indirildi.", outputPaths: [])
+            return SubtitleResult(message: L10n.string("Missing subtitles: %@. The video was downloaded without subtitles.", defaultValue: "Missing subtitles: \(options.summary). The video was downloaded without subtitles."), outputPaths: [])
         }
 
         guard let ffmpeg = dependencyResolver.ffmpegPath() else {
@@ -49,7 +49,7 @@ struct SubtitleService {
         ]
         arguments.append(contentsOf: dependencyResolver.javaScriptRuntimeArguments())
         arguments.append(item.url)
-        onMessage("Altyazılar indiriliyor…")
+        onMessage(L10n.string("Downloading subtitles…"))
         var downloadWarning: String?
         do {
             _ = try await run(dependencyResolver.requireYTDLP(), arguments)
@@ -57,7 +57,7 @@ struct SubtitleService {
             throw CancellationError()
         } catch {
             // Keep other successfully fetched languages when one caption request fails.
-            downloadWarning = "Bazı altyazılar indirilemedi: \(error.localizedDescription)"
+            downloadWarning = L10n.string("Some subtitles could not be downloaded: %@", defaultValue: "Some subtitles could not be downloaded: \(error.localizedDescription)")
         }
 
         let files = try FileManager.default.contentsOfDirectory(at: temporaryDirectory, includingPropertiesForKeys: nil)
@@ -67,9 +67,9 @@ struct SubtitleService {
             return (track.code, url, track.isAutomatic)
         }
         let missing = options.languageCodes.filter { code in captions.contains(where: { $0.code == code }) == false }
-        let missingMessage = missing.isEmpty ? nil : "Bulunamayan altyazı: \(missing.map { SubtitleLanguage.localizedName(for: $0) }.joined(separator: ", "))."
+        let missingMessage = missing.isEmpty ? nil : L10n.string("Missing subtitles: %@.", defaultValue: "Missing subtitles: \(missing.map { SubtitleLanguage.localizedName(for: $0) }.joined(separator: ", ")).")
         guard captions.isEmpty == false else {
-            return SubtitleResult(message: [missingMessage ?? "Altyazı bulunamadı.", downloadWarning].compactMap { $0 }.joined(separator: " "), outputPaths: [])
+            return SubtitleResult(message: [missingMessage ?? L10n.string("No subtitles found."), downloadWarning].compactMap { $0 }.joined(separator: " "), outputPaths: [])
         }
 
         var outputPaths: [String] = []
@@ -86,7 +86,7 @@ struct SubtitleService {
                 outputPaths.append(destination.path)
             }
         } else {
-            onMessage("Altyazılar videoya ekleniyor…")
+            onMessage(L10n.string("Embedding subtitles…"))
             let embeddedVideo = temporaryDirectory.appendingPathComponent("embedded.\(item.container.rawValue)")
             var ffmpegArguments = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", videoPath]
             for caption in captions { ffmpegArguments.append(contentsOf: ["-i", caption.url.path]) }
@@ -97,7 +97,7 @@ struct SubtitleService {
                 let language = SubtitleLanguage(code: caption.code, hasManual: false, hasAutomatic: false)
                 ffmpegArguments.append(contentsOf: [
                     "-metadata:s:s:\(index)", "language=\(language.metadataLanguage)",
-                    "-metadata:s:s:\(index)", "title=\(language.name)\(caption.isAutomatic ? " (otomatik)" : "")",
+                    "-metadata:s:s:\(index)", "title=\(language.name)\(caption.isAutomatic ? L10n.string(" (automatic)") : "")",
                     "-disposition:s:\(index)", "0"
                 ])
             }
@@ -108,11 +108,11 @@ struct SubtitleService {
             _ = try FileManager.default.replaceItemAt(videoURL, withItemAt: embeddedVideo)
         }
 
-        let languageSummary = captions.map { "\(SubtitleLanguage.localizedName(for: $0.code))\($0.isAutomatic ? " (otomatik)" : "")" }.joined(separator: ", ")
+        let languageSummary = captions.map { "\(SubtitleLanguage.localizedName(for: $0.code))\($0.isAutomatic ? L10n.string(" (automatic)") : "")" }.joined(separator: ", ")
         let success = options.delivery == .embedded
-            ? "Altyazı videoya eklendi: \(languageSummary)."
-            : "Altyazı kaydedildi (\(format.title)): \(languageSummary)."
-        let existingMessage = existingFiles.isEmpty ? nil : "Mevcut altyazı dosyaları korundu: \(existingFiles.joined(separator: ", "))."
+            ? L10n.string("Subtitles embedded: %@.", defaultValue: "Subtitles embedded: \(languageSummary).")
+            : L10n.string("Subtitles saved (%@): %@.", defaultValue: "Subtitles saved (\(format.title)): \(languageSummary).")
+        let existingMessage = existingFiles.isEmpty ? nil : L10n.string("Existing subtitle files were preserved: %@.", defaultValue: "Existing subtitle files were preserved: \(existingFiles.joined(separator: ", ")).")
         return SubtitleResult(message: [success, missingMessage, existingMessage, downloadWarning].compactMap { $0 }.joined(separator: " "), outputPaths: outputPaths)
     }
 }

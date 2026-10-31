@@ -1,8 +1,9 @@
+import YouTubeJackCore
 import SwiftUI
 
 struct AddToQueueButton: View {
     @EnvironmentObject private var model: AppModel
-    var title = "Kuyruğa ekle"
+    var title = L10n.string("Add to queue")
 
     var body: some View {
         Button {
@@ -18,6 +19,6 @@ struct AddToQueueButton: View {
         .modifier(FlexibleControlSizing())
         .frame(height: AppControlMetrics.height)
         .disabled(model.canAddToQueue == false)
-        .help("Seçili kalite ve formatla kuyruğa ekle")
+        .help(L10n.string("Add to queue with the selected quality and format"))
     }
 }

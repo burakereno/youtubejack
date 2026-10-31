@@ -6,8 +6,8 @@ struct UpdateDrawerOverlay: View {
 
     var body: some View {
         SideDrawerOverlay(
-            title: "Bilgi ve güncellemeler",
-            closeLabel: "Güncellemeleri kapat",
+            title: L10n.string("Info and updates"),
+            closeLabel: L10n.string("Close updates"),
             isPresented: $isPresented
         ) {
             UpdateInfoView(isPresented: isPresented)
@@ -30,7 +30,7 @@ struct UpdateInfoView: View {
                     YTDLPUpdateSection()
                 }
 
-                UpdatePanelSection("Araç durumu", systemImage: "checkmark.seal") {
+                UpdatePanelSection(L10n.string("Tool status"), systemImage: "checkmark.seal") {
                     VStack(alignment: .leading, spacing: 14) {
                         DependencyRow(name: "yt-dlp", tool: model.dependencyStatus.ytdlp, required: true)
 
@@ -45,7 +45,7 @@ struct UpdateInfoView: View {
                         Button {
                             model.refreshDependencies()
                         } label: {
-                            Label("Araçları yenile", systemImage: "arrow.clockwise")
+                            Label(L10n.string("Refresh tools"), systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity)
                         }
                         .modifier(UpdatePanelSecondaryButtonStyle())
@@ -150,15 +150,15 @@ private struct YTDLPUpdateSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(spacing: 6) {
-                UpdateVersionRow(title: "Kurulu", value: model.ytdlpInstalledVersion ?? "Yüklü değil")
-                UpdateVersionRow(title: "Son sürüm", value: model.ytdlpLatestVersion ?? "Bilinmiyor")
+                UpdateVersionRow(title: L10n.string("Installed"), value: model.ytdlpInstalledVersion ?? L10n.string("Not installed"))
+                UpdateVersionRow(title: L10n.string("Latest version"), value: model.ytdlpLatestVersion ?? L10n.string("Unknown"))
             }
 
             HStack(spacing: 10) {
                 Button {
                     Task { await model.checkYTDLPUpdate() }
                 } label: {
-                    Label("Kontrol et", systemImage: "arrow.clockwise")
+                    Label(L10n.string("Check for updates"), systemImage: "arrow.clockwise")
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
@@ -168,7 +168,7 @@ private struct YTDLPUpdateSection: View {
                 Button {
                     Task { await model.updateYTDLP() }
                 } label: {
-                    Label("Güncelle", systemImage: "square.and.arrow.down")
+                    Label(L10n.string("Update"), systemImage: "square.and.arrow.down")
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
@@ -193,13 +193,13 @@ private struct AppUpdateSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            UpdateVersionRow(title: "Kurulu", value: updater.currentVersion)
+            UpdateVersionRow(title: L10n.string("Installed"), value: updater.currentVersion)
 
             HStack(spacing: 10) {
                 Button {
                     Task { await updater.checkForUpdates(force: true) }
                 } label: {
-                    Label("Kontrol et", systemImage: "arrow.clockwise")
+                    Label(L10n.string("Check for updates"), systemImage: "arrow.clockwise")
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
@@ -221,26 +221,26 @@ private struct AppUpdateSection: View {
     @ViewBuilder
     private var updateStatus: some View {
         if updater.isInstalling {
-            UpdateActivityStatus(message: "Güncelleme kuruluyor; uygulama yeniden açılacak…", isBusy: true)
+            UpdateActivityStatus(message: L10n.string("Installing update; the app will restart…"), isBusy: true)
         } else if updater.isChecking {
-            UpdateActivityStatus(message: "Güncellemeler kontrol ediliyor…", isBusy: true)
+            UpdateActivityStatus(message: L10n.string("Checking for updates…"), isBusy: true)
         } else if updater.isDownloading {
             ProgressView(value: updater.downloadProgress)
         } else if updater.updateAvailable, let latest = updater.latestVersion {
-            Text("Yeni sürüm hazır: \(latest)")
+            Text(L10n.string("New version available: %@", defaultValue: "New version available: \(latest)"))
                 .font(.caption)
                 .foregroundStyle(.orange)
         } else if let error = updater.lastError {
-            Text("Güncelleme kontrolü başarısız: \(error)")
+            Text(L10n.string("Update check failed: %@", defaultValue: "Update check failed: \(error)"))
                 .font(.caption)
                 .foregroundStyle(.red)
                 .lineLimit(3)
         } else if updater.isUpToDate && updater.lastCheckCompletedAt != nil {
-            Text("YouTubeJack güncel.")
+            Text(L10n.string("YouTubeJack is up to date."))
                 .font(.caption)
                 .foregroundStyle(.green)
         } else if updater.updatesEnabled == false {
-            Text("Bu sürümde otomatik kurulum kullanılamıyor.")
+            Text(L10n.string("Automatic installation is unavailable in this build."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -259,7 +259,7 @@ private struct DependencyRow: View {
                 .font(.body)
                 .foregroundStyle(tool == nil ? (required ? .red : .orange) : .green)
                 .frame(width: 18)
-                .accessibilityLabel(tool == nil ? (required ? "Eksik" : "Önerilir") : "Hazır")
+                .accessibilityLabel(tool == nil ? (required ? L10n.string("Missing") : L10n.string("Recommended")) : L10n.string("Ready"))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(name)
@@ -270,12 +270,12 @@ private struct DependencyRow: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Text(tool?.path ?? (required ? "Gerekli" : "Önerilir"))
+                Text(tool?.path ?? (required ? L10n.string("Required") : L10n.string("Recommended")))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(tool?.path ?? (required ? "Gerekli" : "Önerilir"))
+                    .help(tool?.path ?? (required ? L10n.string("Required") : L10n.string("Recommended")))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -293,16 +293,16 @@ private struct DependencyPathRow: View {
                 .font(.body)
                 .foregroundStyle(path == nil ? (required ? .red : .orange) : .green)
                 .frame(width: 18)
-                .accessibilityLabel(path == nil ? (required ? "Eksik" : "Önerilir") : "Hazır")
+                .accessibilityLabel(path == nil ? (required ? L10n.string("Missing") : L10n.string("Recommended")) : L10n.string("Ready"))
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(.callout.weight(.semibold))
-                Text(path ?? (required ? "Gerekli" : "Önerilir"))
+                Text(path ?? (required ? L10n.string("Required") : L10n.string("Recommended")))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(path ?? (required ? "Gerekli" : "Önerilir"))
+                    .help(path ?? (required ? L10n.string("Required") : L10n.string("Recommended")))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

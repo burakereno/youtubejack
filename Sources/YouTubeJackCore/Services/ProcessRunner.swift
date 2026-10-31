@@ -16,7 +16,7 @@ public struct ProcessExecutionError: LocalizedError, Sendable {
     public var errorDescription: String? {
         let message = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
         if message.isEmpty {
-            return "\(executable) \(exitCode) koduyla durdu."
+            return L10n.string("%@ exited with code %d.", defaultValue: "\(executable) exited with code \(exitCode).")
         }
         return message
     }
@@ -27,7 +27,7 @@ public struct ProcessTimeoutError: LocalizedError, Sendable {
     public let timeout: TimeInterval
 
     public var errorDescription: String? {
-        "\(executable) \(Int(timeout)) saniye içinde bitmedi."
+        L10n.string("%@ did not finish within %lld seconds.", defaultValue: "\(executable) did not finish within \(Int(timeout)) seconds.")
     }
 }
 

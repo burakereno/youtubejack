@@ -155,7 +155,7 @@ final class AppModel: ObservableObject {
     }
 
     var queueControlTitle: String {
-        isQueuePaused ? "Başlat" : "Duraklat"
+        isQueuePaused ? L10n.string("Start") : L10n.string("Pause")
     }
 
     var queueControlIcon: String {
@@ -165,12 +165,12 @@ final class AppModel: ObservableObject {
     var formatSelectionDetail: String {
         if media?.kind == .playlist {
             let availability = playlistAvailability
-            if availability.selectedEntries.isEmpty { return "Seçenekleri görmek için playlistten video seçin." }
+            if availability.selectedEntries.isEmpty { return L10n.string("Select playlist videos to see download options.") }
             if isAnalyzingFormats {
-                return "Seçili videolar kontrol ediliyor: \(availability.checkedCount + availability.failedCount)/\(availability.selectedEntries.count)."
+                return L10n.string("Checking selected videos: %lld/%lld.", defaultValue: "Checking selected videos: \(availability.checkedCount + availability.failedCount)/\(availability.selectedEntries.count).")
             }
             if availability.failedCount > 0 {
-                return "\(availability.failedCount) videonun seçenekleri kontrol edilemedi. Bu videolar indirilirken tekrar kontrol edilir."
+                return L10n.string("Could not check options for %lld videos. They will be checked again when downloaded.", defaultValue: "Could not check options for \(availability.failedCount) videos. They will be checked again when downloaded.")
             }
             let matching = availability.selectedMedia.filter {
                 let formats = $0.formatAvailability
@@ -178,19 +178,19 @@ final class AppModel: ObservableObject {
                     ? formats.isResolutionAvailable(selectedQuality, audioLanguage: selectedAudioLanguage)
                     : formats.isContainerAvailable(selectedContainer, for: selectedQuality, codec: selectedVideoCodec, audioLanguage: selectedAudioLanguage)
             }.count
-            return "Görüntü ve ses seçimi \(matching)/\(availability.selectedEntries.count) videoda kullanılabilir."
+            return L10n.string("The selected video and audio options are available for %lld/%lld videos.", defaultValue: "The selected video and audio options are available for \(matching)/\(availability.selectedEntries.count) videos.")
         }
         if isAnalyzingFormats {
-            return "Formatlar analiz ediliyor..."
+            return L10n.string("Analyzing formats…")
         }
         if media?.formatAvailability.isKnown == false {
-            return "Playlistlerde uygunluk video bazında kontrol edilir."
+            return L10n.string("Availability is checked separately for each playlist video.")
         }
         if selectedQuality.isAudioOnly {
             return selectedQuality.detail
         }
         if isQualityAvailable(selectedQuality) == false || isContainerAvailable(selectedContainer, for: selectedQuality) == false {
-            return "Seçilen video akışı bu çözünürlükte veya formatta yok. Başka bir seçim yapın."
+            return L10n.string("This video stream is unavailable at the selected resolution or format. Choose another option.")
         }
         return "\(selectedQuality.title) · \(selectedVideoCodec.title) · \(selectedContainer.title)"
     }
@@ -206,9 +206,9 @@ final class AppModel: ObservableObject {
             return nil
         }
         if selectedVideoCodec == .automatic {
-            return "Bu videoda maksimum \(maxHeight)p var."
+            return L10n.string("The maximum resolution for this video is %lldp.", defaultValue: "The maximum resolution for this video is \(maxHeight)p.")
         }
-        return "\(selectedVideoCodec.title) için maksimum \(maxHeight)p var."
+        return L10n.string("Maximum resolution for %@: %lldp.", defaultValue: "Maximum resolution for \(selectedVideoCodec.title): \(maxHeight)p.")
     }
 
     func isQualityAvailable(_ profile: QualityProfile) -> Bool {
@@ -249,9 +249,9 @@ final class AppModel: ObservableObject {
     }
 
     var formatAnalysisTitle: String {
-        guard media?.kind == .playlist else { return "Formatlar analiz ediliyor" }
+        guard media?.kind == .playlist else { return L10n.string("Analyzing formats") }
         let availability = playlistAvailability
-        return "Videolar kontrol ediliyor · \(availability.checkedCount + availability.failedCount)/\(availability.selectedEntries.count)"
+        return L10n.string("Checking videos · %lld/%lld", defaultValue: "Checking videos · \(availability.checkedCount + availability.failedCount)/\(availability.selectedEntries.count)")
     }
 
     var formatAnalysisProgress: Double? {
@@ -269,7 +269,7 @@ final class AppModel: ObservableObject {
         guard total > 0 else { return nil }
         // Keep 100% reserved for when every selected video has been checked.
         let percentage = (availability.checkedCount + availability.failedCount) * 100 / total
-        return "\(percentage)% · \(availability.pendingCount) video kaldı"
+        return L10n.string("%lld%% · %lld videos remaining", defaultValue: "\(percentage)% · \(availability.pendingCount) videos remaining")
     }
 
     var queuedAudioLanguage: AudioLanguageSelection {
@@ -395,7 +395,7 @@ final class AppModel: ObservableObject {
     func checkYTDLPUpdate() async {
         guard isUpdatingYTDLP == false else { return }
         isUpdatingYTDLP = true
-        ytdlpUpdateMessage = "yt-dlp kontrol ediliyor..."
+        ytdlpUpdateMessage = L10n.string("Checking yt-dlp…")
         defer { isUpdatingYTDLP = false }
 
         let installedVersion = await ytdlpUpdateService.installedVersion()
@@ -406,14 +406,14 @@ final class AppModel: ObservableObject {
             ytdlpLatestVersion = latestRelease.version
 
             if installedVersion == latestRelease.version {
-                ytdlpUpdateMessage = "yt-dlp güncel."
+                ytdlpUpdateMessage = L10n.string("yt-dlp is up to date.")
             } else if installedVersion == nil {
-                ytdlpUpdateMessage = "yt-dlp indirilmeye hazır."
+                ytdlpUpdateMessage = L10n.string("yt-dlp is ready to download.")
             } else {
-                ytdlpUpdateMessage = "Yeni sürüm hazır: \(latestRelease.version)"
+                ytdlpUpdateMessage = L10n.string("New version available: %@", defaultValue: "New version available: \(latestRelease.version)")
             }
         } catch {
-            ytdlpUpdateMessage = "Son sürüm kontrolü başarısız: \(error.localizedDescription)"
+            ytdlpUpdateMessage = L10n.string("Could not check the latest version: %@", defaultValue: "Could not check the latest version: \(error.localizedDescription)")
         }
     }
 
@@ -421,14 +421,14 @@ final class AppModel: ObservableObject {
         guard isUpdatingYTDLP == false else { return }
         isUpdatingYTDLP = true
         defer { isUpdatingYTDLP = false }
-        ytdlpUpdateMessage = "yt-dlp indiriliyor..."
+        ytdlpUpdateMessage = L10n.string("Downloading yt-dlp…")
 
         do {
             let result = try await ytdlpUpdateService.installLatest()
             dependencyStatus = dependencyResolver.resolveStatus()
             ytdlpInstalledVersion = result.version
             ytdlpLatestVersion = result.version
-            ytdlpUpdateMessage = "yt-dlp \(result.version) kuruldu."
+            ytdlpUpdateMessage = L10n.string("yt-dlp %@ installed.", defaultValue: "yt-dlp \(result.version) installed.")
         } catch {
             ytdlpUpdateMessage = error.localizedDescription
         }
@@ -662,7 +662,7 @@ final class AppModel: ObservableObject {
                 return (entry, parsed.normalizedURL, selectedAudioLanguage.resolved(in: playlistMetadata[entry.url]?.formatAvailability ?? .unknown))
             }
             guard validSelectedEntries.count == selectedEntries.count else {
-                statusMessage = "Playlist içinde geçersiz YouTube bağlantısı var."
+                statusMessage = L10n.string("The playlist contains an invalid YouTube link.")
                 return
             }
             newItems = validSelectedEntries
@@ -688,7 +688,7 @@ final class AppModel: ObservableObject {
                 return
             }
             guard queue.contains(where: { $0.url == parsedMediaURL.normalizedURL && $0.quality == selectedQuality && $0.container == selectedContainer && $0.videoCodecPreference == selectedVideoCodec && $0.subtitles == queuedSubtitleOptions && $0.audioLanguage == queuedAudioLanguage && $0.status != .failed && $0.status != .cancelled }) == false else {
-                statusMessage = "Bu video aynı kalite, format, ses ve altyazı seçimiyle zaten kuyrukta."
+                statusMessage = L10n.string("This video is already queued with the same quality, format, audio, and subtitle options.")
                 return
             }
             newItems = [
@@ -707,7 +707,7 @@ final class AppModel: ObservableObject {
 	        }
 
         guard newItems.isEmpty == false else {
-            statusMessage = "Seçilenler zaten kuyrukta."
+            statusMessage = L10n.string("The selected videos are already queued.")
             return
         }
 

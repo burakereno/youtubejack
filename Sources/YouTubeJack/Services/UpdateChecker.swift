@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import AppKit
 import Foundation
 import OSLog
@@ -178,7 +179,9 @@ final class UpdateChecker: ObservableObject {
         isChecking = false
     }
 
-    nonisolated static let unfinishedQueueMessage = "Güncellemeden önce kuyruktaki indirmeleri tamamlayın veya bekleyen işleri kuyruktan kaldırın."
+    nonisolated static var unfinishedQueueMessage: String {
+        L10n.string("Finish queued downloads or remove pending items before updating.")
+    }
 
     func reportInstallationBlocked() {
         lastError = Self.unfinishedQueueMessage
@@ -190,13 +193,13 @@ final class UpdateChecker: ObservableObject {
         onPreparationChanged: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never>? {
         guard isProductionBuild else {
-            lastError = "Updates are disabled for local builds."
+            lastError = L10n.string("Updates are disabled for local builds.")
             return nil
         }
         guard isDownloading == false, isInstalling == false else { return nil }
         guard canInstall() else { reportInstallationBlocked(); return nil }
         guard updateAvailable, let downloadURL, let manifestURL, let latestVersion else {
-            lastError = "Update download is unavailable."
+            lastError = L10n.string("Update download is unavailable.")
             return nil
         }
 
@@ -383,15 +386,15 @@ enum UpdateError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .badResponse:
-            return "GitHub returned an invalid response"
+            return L10n.string("GitHub returned an invalid response")
         case .badStatus(let statusCode):
-            return "GitHub returned HTTP \(statusCode)"
+            return L10n.string("GitHub returned HTTP %lld", defaultValue: "GitHub returned HTTP \(statusCode)")
         case .missingAsset(let assetName):
-            return "GitHub release is missing \(assetName)"
+            return L10n.string("GitHub release is missing %@", defaultValue: "GitHub release is missing \(assetName)")
         case .missingVersion:
-            return "GitHub release is missing a version tag"
+            return L10n.string("GitHub release is missing a version tag")
         case .invalidManifest:
-            return "GitHub release contains an invalid update manifest"
+            return L10n.string("GitHub release contains an invalid update manifest")
         }
     }
 }

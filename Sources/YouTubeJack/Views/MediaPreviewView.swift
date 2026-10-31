@@ -15,7 +15,7 @@ struct MediaPreviewView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                     if media.kind == .playlist {
-                        Text("\(media.entryCount) video")
+                        Text(L10n.string("%lld videos", defaultValue: "\(media.entryCount) videos"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if DisplayFormatters.duration(media.duration).isEmpty == false {

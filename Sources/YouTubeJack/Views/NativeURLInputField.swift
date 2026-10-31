@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import AppKit
 import SwiftUI
 
@@ -18,7 +19,7 @@ struct NativeURLInputField: NSViewRepresentable {
         field.isBezeled = true
         field.drawsBackground = true
         field.font = .systemFont(ofSize: NSFont.systemFontSize)
-        field.placeholderString = "Video veya playlist linki yapıştır"
+        field.placeholderString = L10n.string("Paste a video or playlist link")
         field.cell?.usesSingleLineMode = true
         field.cell?.isScrollable = true
         field.cell?.wraps = false
@@ -26,7 +27,7 @@ struct NativeURLInputField: NSViewRepresentable {
         field.delegate = context.coordinator
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        field.setAccessibilityLabel("YouTube linki")
+        field.setAccessibilityLabel(L10n.string("YouTube link"))
 
         if #available(macOS 26.0, *) {
             field.borderShape = .capsule
@@ -40,6 +41,8 @@ struct NativeURLInputField: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSTextField, context: Context) {
         context.coordinator.parent = self
+        nsView.placeholderString = L10n.string("Paste a video or playlist link")
+        nsView.setAccessibilityLabel(L10n.string("YouTube link"))
         if isEnabled == false, nsView.currentEditor() != nil { nsView.window?.makeFirstResponder(nil) }
         nsView.isEnabled = isEnabled
         nsView.isEditable = isEnabled

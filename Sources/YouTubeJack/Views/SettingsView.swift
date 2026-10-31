@@ -5,7 +5,7 @@ struct SettingsDrawerOverlay: View {
     @Binding var isPresented: Bool
 
     var body: some View {
-        SideDrawerOverlay(title: "Ayarlar", closeLabel: "Ayarları kapat", isPresented: $isPresented) {
+        SideDrawerOverlay(title: L10n.string("Settings"), closeLabel: L10n.string("Close settings"), isPresented: $isPresented) {
             SettingsPanelContent(contentWidth: 390)
         }
     }
@@ -16,7 +16,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Ayarlar")
+            Text(L10n.string("Settings"))
                 .font(.title2.weight(.semibold))
 
             SettingsPanelContent(contentWidth: contentWidth)
@@ -41,6 +41,7 @@ private struct SettingsPanelContent: View {
 
 private struct GeneralSettingsPane: View {
     @EnvironmentObject private var model: AppModel
+    @Bindable private var languageSettings = AppLanguageSettings.shared
     @AppStorage(AppPreferenceKeys.autoDetectClipboard) private var autoDetectClipboard = true
     @AppStorage(AppPreferenceKeys.defaultQuality) private var defaultQuality = AppPreferenceDefaults.defaultQuality
     @AppStorage(AppPreferenceKeys.defaultContainer) private var defaultContainer = AppPreferenceDefaults.defaultContainer
@@ -49,8 +50,28 @@ private struct GeneralSettingsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SettingsGroup(title: "Varsayılanlar", systemImage: "slider.horizontal.3", contentWidth: contentWidth) {
-                SettingsRow(title: "Çözünürlük", contentWidth: contentWidth) {
+            SettingsGroup(title: L10n.string("App language"), systemImage: "globe", contentWidth: contentWidth) {
+                SettingsRow(title: L10n.string("Language"), contentWidth: contentWidth) {
+                    MenuField(L10n.string("App language"), value: languageSettings.language.nativeName) {
+                        ForEach(AppLanguage.allCases) { language in
+                            MenuChoice(title: language.nativeName, isSelected: languageSettings.language == language) {
+                                languageSettings.language = language
+                            }
+                        }
+                    }
+                    .frame(width: 170)
+                }
+
+                Text(L10n.string("Changes apply immediately. Restart the app to update system menus."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            SettingsDivider(width: contentWidth)
+
+            SettingsGroup(title: L10n.string("Defaults"), systemImage: "slider.horizontal.3", contentWidth: contentWidth) {
+                SettingsRow(title: L10n.string("Resolution"), contentWidth: contentWidth) {
                     DefaultQualityMenu(selection: $defaultQuality) { newValue in
                         model.updateDefaultQuality(QualityProfile(rawValue: newValue) ?? .q1080)
                     }
@@ -62,8 +83,8 @@ private struct GeneralSettingsPane: View {
                     }
                 }
 
-                SettingsRow(title: "Video codec’i", contentWidth: contentWidth) {
-                    MenuField("Video codec’i", value: (VideoCodecPreference(rawValue: defaultVideoCodec) ?? .automatic).title) {
+                SettingsRow(title: L10n.string("Video codec"), contentWidth: contentWidth) {
+                    MenuField(L10n.string("Video codec"), value: (VideoCodecPreference(rawValue: defaultVideoCodec) ?? .automatic).title) {
                         ForEach(VideoCodecPreference.allCases) { codec in
                             MenuChoice(title: codec.title, isSelected: defaultVideoCodec == codec.rawValue) {
                                 defaultVideoCodec = codec.rawValue
@@ -77,9 +98,9 @@ private struct GeneralSettingsPane: View {
 
             SettingsDivider(width: contentWidth)
 
-            SettingsGroup(title: "Davranış", systemImage: "sparkles", contentWidth: contentWidth) {
-                SettingsRow(title: "Açılışta panoyu kontrol et", contentWidth: contentWidth) {
-                    Toggle("Açılışta panoyu kontrol et", isOn: $autoDetectClipboard)
+            SettingsGroup(title: L10n.string("Behavior"), systemImage: "sparkles", contentWidth: contentWidth) {
+                SettingsRow(title: L10n.string("Check clipboard at launch"), contentWidth: contentWidth) {
+                    Toggle(L10n.string("Check clipboard at launch"), isOn: $autoDetectClipboard)
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }
@@ -87,7 +108,7 @@ private struct GeneralSettingsPane: View {
 
             SettingsDivider(width: contentWidth)
 
-            SettingsGroup(title: "İndirme klasörü", systemImage: "folder", contentWidth: contentWidth) {
+            SettingsGroup(title: L10n.string("Download folder"), systemImage: "folder", contentWidth: contentWidth) {
                 DestinationPickerView()
                     .frame(width: contentWidth, alignment: .leading)
             }
@@ -169,7 +190,7 @@ private struct DefaultQualityMenu: View {
     let onChange: (String) -> Void
 
     var body: some View {
-        MenuField("Varsayılan çözünürlük", value: selectedTitle) {
+        MenuField(L10n.string("Default resolution"), value: selectedTitle) {
             ForEach(QualityProfile.allCases) { profile in
                 MenuChoice(title: profile.title, isSelected: selection == profile.rawValue) {
                     selection = profile.rawValue
@@ -190,7 +211,7 @@ private struct DefaultContainerSegmentedControl: View {
     let onChange: (String) -> Void
 
     var body: some View {
-        Picker("Varsayılan dosya biçimi", selection: $selection) {
+        Picker(L10n.string("Default file format"), selection: $selection) {
             ForEach(DownloadContainer.allCases) { container in
                 Text(container.title).tag(container.rawValue)
             }

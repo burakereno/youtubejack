@@ -7,21 +7,21 @@ struct SubtitlePickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Altyazı", systemImage: "captions.bubble")
+                Label(L10n.string("Subtitles"), systemImage: "captions.bubble")
                     .font(.headline)
                 Spacer()
-                Toggle("Altyazı ekle", isOn: $model.includesSubtitles)
+                Toggle(L10n.string("Include subtitles"), isOn: $model.includesSubtitles)
                     .toggleStyle(.switch)
                     .controlSize(.regular)
                     .disabled(model.canIncludeSubtitles == false || model.isAnalyzingFormats)
             }
 
             if model.selectedQuality.isAudioOnly {
-                Text("Altyazılar video indirmelerinde kullanılabilir.")
+                Text(L10n.string("Subtitles are available for video downloads."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else if model.isAnalyzingFormats {
-                Text("Kullanılabilir altyazılar kontrol ediliyor…")
+                Text(L10n.string("Checking available subtitles…"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else if showsAutomaticSubtitleWarning {
@@ -47,9 +47,9 @@ struct SubtitlePickerView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Kaydetme biçimi")
+                    Text(L10n.string("Save as"))
                         .font(.callout.weight(.semibold))
-                    MenuField("Altyazı kaydetme biçimi", value: model.subtitleOptions.delivery.title) {
+                    MenuField(L10n.string("Subtitle delivery"), value: model.subtitleOptions.delivery.title) {
                         ForEach(SubtitleDelivery.allCases) { delivery in
                             MenuChoice(title: delivery.title, isSelected: model.subtitleOptions.delivery == delivery) {
                                 model.subtitleOptions.delivery = delivery
@@ -60,9 +60,9 @@ struct SubtitlePickerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Diller")
+                    Text(L10n.string("Languages"))
                         .font(.callout.weight(.semibold))
-                    MenuField("Altyazı dilleri", value: model.subtitleOptions.languageCodes.isEmpty ? "Dil seç" : model.subtitleOptions.summary) {
+                    MenuField(L10n.string("Subtitle languages"), value: model.subtitleOptions.languageCodes.isEmpty ? L10n.string("Choose language") : model.subtitleOptions.summary) {
                         ForEach(model.selectableSubtitleLanguages) { language in
                             Toggle(isOn: Binding(
                                 get: { model.subtitleOptions.languageCodes.contains(language.code) },
@@ -96,9 +96,9 @@ struct SubtitlePickerView: View {
 
     private var subtitleFormatField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Dosya biçimi")
+            Text(L10n.string("File format"))
                 .font(.callout.weight(.semibold))
-            MenuField("Altyazı dosya biçimi", value: model.subtitleOptions.format.title) {
+            MenuField(L10n.string("Subtitle file format"), value: model.subtitleOptions.format.title) {
                 ForEach(SubtitleFormat.allCases) { format in
                     MenuChoice(title: format.title, isSelected: model.subtitleOptions.format == format) {
                         model.subtitleOptions.format = format
@@ -114,11 +114,11 @@ struct SubtitlePickerView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("Otomatik altyazıları kullan", isOn: $model.includesAutomaticSubtitles)
+                Toggle(L10n.string("Include automatic captions"), isOn: $model.includesAutomaticSubtitles)
                     .toggleStyle(.checkbox)
                     .font(.callout.weight(.semibold))
 
-                Text("YouTube’un konuşmayı tanıyarak oluşturduğu veya otomatik çevirdiği altyazıları listeye ekler. Aynı dilde yayıncı altyazısı varsa ona öncelik verilir. Otomatik metinlerde hata olabilir.")
+                Text(L10n.string("Include captions that YouTube generates using speech recognition or automatic translation. Publisher captions are preferred when available in the same language. Automatic captions may contain errors."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -136,12 +136,12 @@ struct SubtitlePickerView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Yalnızca otomatik altyazı var")
+                Text(L10n.string("Only automatic captions are available"))
                     .font(.callout.weight(.semibold))
 
                 Text(model.media?.kind == .playlist
-                     ? "Seçili videolarda yayıncı tarafından eklenmiş altyazı bulunamadı. Otomatik altyazıları kullanmak için aşağıdaki seçeneği açın. Kapalı kalırsa videolar altyazısız indirilecek."
-                     : "Bu videoda yayıncı tarafından eklenmiş altyazı bulunamadı. Otomatik altyazıları kullanmak için aşağıdaki seçeneği açın. Kapalı kalırsa video altyazısız indirilecek.")
+                     ? L10n.string("No publisher captions were found in the selected videos. Enable automatic captions below to use them. Otherwise, the videos will be downloaded without subtitles.")
+                     : L10n.string("No publisher captions were found in this video. Enable automatic captions below to use them. Otherwise, the video will be downloaded without subtitles."))
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -169,23 +169,23 @@ struct SubtitlePickerView: View {
     }
 
     private var detail: String {
-        if model.isAnalyzingFormats { return "Kullanılabilir altyazılar kontrol ediliyor…" }
+        if model.isAnalyzingFormats { return L10n.string("Checking available subtitles…") }
         if model.media?.kind == .playlist {
-            if model.playlistAvailability.selectedEntries.isEmpty { return "Altyazıları görmek için playlistten video seçin." }
+            if model.playlistAvailability.selectedEntries.isEmpty { return L10n.string("Select playlist videos to see available subtitles.") }
             if model.playlistAvailability.failedCount > 0 {
-                return "Kontrol edilebilen videoların altyazıları gösteriliyor. Bulunamayan altyazılar kuyrukta belirtilir."
+                return L10n.string("Showing subtitles from the videos that could be checked. Missing subtitles are identified in the queue.")
             }
             if model.subtitleLanguages.isEmpty {
-                return "Seçili videolarda altyazı bulunamadı. Videolar altyazısız indirilecek."
+                return L10n.string("No subtitles were found in the selected videos. The videos will be downloaded without subtitles.")
             }
-            return "Seçili videolarda bulunan diller gösteriliyor. Altyazı her videoya ayrı uygulanır; bulunamayan diller kuyrukta belirtilir."
+            return L10n.string("Showing languages found in the selected videos. Subtitles are applied to each video separately; missing languages are identified in the queue.")
         }
         if model.subtitleAvailability.isKnown, model.subtitleLanguages.isEmpty {
-            return "Bu videoda altyazı bulunamadı. Video altyazısız indirilecek."
+            return L10n.string("No subtitles were found in this video. It will be downloaded without subtitles.")
         }
-        if model.subtitleOptions.languageCodes.isEmpty { return "En az bir altyazı dili seçin." }
+        if model.subtitleOptions.languageCodes.isEmpty { return L10n.string("Select at least one subtitle language.") }
         return model.subtitleOptions.delivery == .embedded
-            ? "Altyazılar video dosyasına eklenir; oynatıcıda açılıp kapatılabilir. Ayrı dosya oluşturulmaz."
-            : "Seçilen altyazılar videoyla aynı klasöre, dil koduyla kaydedilir."
+            ? L10n.string("Subtitles are embedded in the video and can be turned on or off in your player. No separate file is created.")
+            : L10n.string("Selected subtitles are saved alongside the video with their language code.")
     }
 }

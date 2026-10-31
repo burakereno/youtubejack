@@ -7,7 +7,7 @@ struct QualityPickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
-                DownloadOptionField("Çözünürlük", value: model.selectedQuality.title) {
+                DownloadOptionField(L10n.string("Resolution"), value: model.selectedQuality.title) {
                     ForEach(QualityProfile.allCases) { profile in
                         MenuChoice(
                             title: profile.title,
@@ -19,7 +19,7 @@ struct QualityPickerView: View {
                     }
                 }
 
-                DownloadOptionField("Video codec’i", value: model.selectedQuality.isAudioOnly ? "Uygulanmaz" : model.selectedVideoCodec.title) {
+                DownloadOptionField(L10n.string("Video codec"), value: model.selectedQuality.isAudioOnly ? L10n.string("Not applicable") : model.selectedVideoCodec.title) {
                     ForEach(VideoCodecPreference.allCases) { codec in
                         MenuChoice(
                             title: codec.title,
@@ -32,7 +32,7 @@ struct QualityPickerView: View {
                 }
                 .disabled(model.selectedQuality.isAudioOnly)
 
-                DownloadOptionField("Dosya biçimi", value: model.selectedQuality.isAudioOnly ? "M4A" : model.selectedContainer.title) {
+                DownloadOptionField(L10n.string("File format"), value: model.selectedQuality.isAudioOnly ? "M4A" : model.selectedContainer.title) {
                     ForEach(DownloadContainer.allCases) { container in
                         MenuChoice(
                             title: container.title,

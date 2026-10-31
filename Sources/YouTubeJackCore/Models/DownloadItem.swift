@@ -10,15 +10,15 @@ public enum DownloadState: String, Codable, Sendable {
     public var title: String {
         switch self {
         case .pending:
-            return "Bekliyor"
+            return L10n.string("Pending")
         case .running:
-            return "İndiriliyor"
+            return L10n.string("Downloading")
         case .completed:
-            return "Tamamlandı"
+            return L10n.string("Completed")
         case .failed:
-            return "Hata"
+            return L10n.string("Failed")
         case .cancelled:
-            return "İptal"
+            return L10n.string("Cancelled")
         }
     }
 }

@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import CryptoKit
 import Foundation
 
@@ -21,19 +22,19 @@ enum UpdateSecurityError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .versionMismatch:
-            return "Update manifest version does not match the release."
+            return L10n.string("Update manifest version does not match the release.")
         case .assetMismatch:
-            return "Update manifest asset does not match the expected DMG."
+            return L10n.string("Update manifest asset does not match the expected DMG.")
         case .bundleIdentifierMismatch:
-            return "Update manifest bundle identifier is invalid."
+            return L10n.string("Update manifest bundle identifier is invalid.")
         case .teamIdentifierMismatch:
-            return "Update publisher identity is invalid."
+            return L10n.string("Update publisher identity is invalid.")
         case .invalidChecksum:
-            return "Update manifest SHA-256 is invalid."
+            return L10n.string("Update manifest SHA-256 is invalid.")
         case .checksumMismatch:
-            return "Downloaded update failed SHA-256 verification."
+            return L10n.string("Downloaded update failed SHA-256 verification.")
         case .invalidWorkDirectory:
-            return "Güncellemenin geçici klasörü doğrulanamadı."
+            return L10n.string("The temporary update folder could not be verified.")
         }
     }
 }

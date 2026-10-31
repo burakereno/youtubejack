@@ -12,7 +12,7 @@ struct AudioLanguagePickerView: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Ses dili")
+                    Text(L10n.string("Audio language"))
                         .font(.headline)
 
                     Text(detail)
@@ -25,7 +25,7 @@ struct AudioLanguagePickerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            MenuField("İndirilecek ses dili", value: selectedTitle) {
+            MenuField(L10n.string("Download audio language"), value: selectedTitle) {
                 MenuChoice(title: originalTitle, isSelected: model.selectedAudioLanguage == .original) {
                     model.updateSelectedAudioLanguage(.original)
                 }
@@ -51,20 +51,20 @@ struct AudioLanguagePickerView: View {
     }
 
     private var detail: String {
-        if model.isAnalyzingFormats { return "Mevcut ses dilleri kontrol ediliyor…" }
+        if model.isAnalyzingFormats { return L10n.string("Checking available audio languages…") }
         if model.media?.kind == .playlist {
             if model.playlistAvailability.failedCount > 0 {
-                return "Kontrol edilebilen videoların ses dilleri gösteriliyor. Seçilen dil her indirmede tekrar kontrol edilir."
+                return L10n.string("Showing audio languages from the videos that could be checked. The selected language is checked again for each download.")
             }
             if model.audioLanguages.isEmpty {
-                return "Seçili videolarda alternatif ses dili bulunamadı. Her videonun orijinal sesi indirilecek."
+                return L10n.string("No alternative audio languages were found in the selected videos. Each video's original audio will be downloaded.")
             }
-            return "Seçili videolarda bulunan ses dilleri gösteriliyor. Seçilen dilin olmadığı videolar kuyrukta belirtilir."
+            return L10n.string("Showing audio languages found in the selected videos. Videos missing the selected language are identified in the queue.")
         }
         if model.audioLanguages.filter({ $0.isOriginal == false }).isEmpty {
-            return "Bu videoda alternatif ses dili bulunamadı. Orijinal ses indirilecek."
+            return L10n.string("No alternative audio languages were found in this video. Original audio will be downloaded.")
         }
-        return "Video, seçtiğiniz ses diliyle indirilir. Altyazı dilini ayrıca seçebilirsiniz."
+        return L10n.string("The video is downloaded with your selected audio language. You can choose subtitles separately.")
     }
 }
 

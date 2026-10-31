@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import AppKit
 import SwiftUI
 
@@ -12,7 +13,7 @@ struct DestinationPickerView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Label("Klasör", systemImage: "folder")
+            Label(L10n.string("Folder"), systemImage: "folder")
                 .font(.headline)
 
             Text(downloadDirectory)
@@ -26,7 +27,7 @@ struct DestinationPickerView: View {
             Button {
                 chooseDirectory()
             } label: {
-                Label("Seç", systemImage: "folder.badge.plus")
+                Label(L10n.string("Choose"), systemImage: "folder.badge.plus")
             }
             .buttonStyle(.bordered)
             .controlSize(.extraLarge)
@@ -43,6 +44,8 @@ struct DestinationPickerView: View {
 
     private func chooseDirectory() {
         let panel = NSOpenPanel()
+        panel.title = L10n.string("Download folder")
+        panel.prompt = L10n.string("Choose")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false

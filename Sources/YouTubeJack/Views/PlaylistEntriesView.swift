@@ -15,7 +15,7 @@ struct PlaylistEntriesView: View {
             Divider()
 
             if model.playlistEntries.isEmpty {
-                ContentUnavailableView("Playlist boş", systemImage: "list.bullet.rectangle")
+                ContentUnavailableView(L10n.string("Playlist is empty"), systemImage: "list.bullet.rectangle")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 playlistList
@@ -23,13 +23,13 @@ struct PlaylistEntriesView: View {
 
             Divider()
 
-            AddToQueueButton(title: "\(selectedCount) videoyu kuyruğa ekle")
+            AddToQueueButton(title: L10n.string("Add %lld videos to queue", defaultValue: "Add \(selectedCount) videos to queue"))
                 .padding(16)
                 .background(.bar)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Playlist videoları")
+        .accessibilityLabel(L10n.string("Playlist videos"))
     }
 
     private var header: some View {
@@ -40,7 +40,7 @@ struct PlaylistEntriesView: View {
 
                 Spacer(minLength: 8)
 
-                Text("\(selectedCount) / \(model.playlistEntries.count) seçili")
+                Text(L10n.string("%lld / %lld selected", defaultValue: "\(selectedCount) / \(model.playlistEntries.count) selected"))
                     .font(.callout)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -58,7 +58,7 @@ struct PlaylistEntriesView: View {
                 Button {
                     model.setAllPlaylistEntries(true)
                 } label: {
-                    Label("Tümünü Seç", systemImage: "checklist.checked")
+                    Label(L10n.string("Select All"), systemImage: "checklist.checked")
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(selectedCount == model.playlistEntries.count)
@@ -66,7 +66,7 @@ struct PlaylistEntriesView: View {
                 Button {
                     model.setAllPlaylistEntries(false)
                 } label: {
-                    Label("Seçimi Kaldır", systemImage: "checklist.unchecked")
+                    Label(L10n.string("Deselect All"), systemImage: "checklist.unchecked")
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(selectedCount == 0)
@@ -114,9 +114,9 @@ private struct PlaylistEntryRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(entry.index). \(entry.title)")
-        .accessibilityValue(entry.isSelected ? "Seçili" : "Seçili değil")
+        .accessibilityValue(entry.isSelected ? L10n.string("Selected") : L10n.string("Not selected"))
         .accessibilityAddTraits(entry.isSelected ? .isSelected : [])
-        .help(entry.isSelected ? "Seçimi kaldır" : "Videoyu seç")
+        .help(entry.isSelected ? L10n.string("Deselect") : L10n.string("Select video"))
     }
 
     private var rowContent: some View {

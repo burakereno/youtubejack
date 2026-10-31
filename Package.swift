@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "YouTubeJack",
-    defaultLocalization: "tr",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -14,7 +14,8 @@ let package = Package(
     targets: [
         .target(
             name: "YouTubeJackCore",
-            path: "Sources/YouTubeJackCore"
+            path: "Sources/YouTubeJackCore",
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "YouTubeJack",

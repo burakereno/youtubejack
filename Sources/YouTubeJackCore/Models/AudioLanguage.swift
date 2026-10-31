@@ -13,9 +13,9 @@ public struct AudioLanguageSelection: Equatable, Hashable, Codable, Identifiable
     }
 
     public var title: String {
-        guard let languageCode else { return "Orijinal" }
+        guard let languageCode else { return L10n.string("Original") }
         let name = AudioLanguage.localizedName(for: languageCode)
-        return isOriginal ? "Orijinal (\(name))" : name
+        return isOriginal ? L10n.string("Original (%@)", defaultValue: "Original (\(name))") : name
     }
 
     public var formatFilter: String {
@@ -50,13 +50,13 @@ public struct AudioLanguage: Identifiable, Equatable, Sendable {
     public var name: String { Self.localizedName(for: code) }
     public var selection: AudioLanguageSelection { AudioLanguageSelection(languageCode: code) }
     public var title: String {
-        isAutomatic ? "\(name) · Otomatik dublaj" : name
+        isAutomatic ? L10n.string("%@ · Automatic dubbing", defaultValue: "\(name) · Automatic dubbing") : name
     }
 
     public static func localizedName(for code: String) -> String {
         let descriptive = code.hasSuffix("-desc")
         let base = descriptive ? String(code.dropLast(5)) : code
-        let name = Locale(identifier: "tr").localizedString(forIdentifier: base) ?? base
-        return descriptive ? "\(name) (sesli betimleme)" : name
+        let name = L10n.locale.localizedString(forIdentifier: base) ?? base
+        return descriptive ? L10n.string("%@ (audio description)", defaultValue: "\(name) (audio description)") : name
     }
 }

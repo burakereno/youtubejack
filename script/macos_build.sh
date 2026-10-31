@@ -19,6 +19,17 @@ youtubejack_verify_macos_binary() {
     --minimum "$YOUTUBEJACK_MACOS_MINIMUM" "$@"
 }
 
+youtubejack_copy_localization_resources() {
+  local destination="$1"
+  local resource_bundle="$(dirname "$YOUTUBEJACK_MACOS_BINARY")/YouTubeJack_YouTubeJackCore.bundle"
+  if [[ ! -d "$resource_bundle" ]]; then
+    echo "Missing SwiftPM localization resources: $resource_bundle" >&2
+    return 1
+  fi
+  mkdir -p "$destination"
+  ditto "$resource_bundle" "$destination/YouTubeJack_YouTubeJackCore.bundle"
+}
+
 youtubejack_build_macos() {
   local configuration="${1:-debug}"
   case "$configuration" in

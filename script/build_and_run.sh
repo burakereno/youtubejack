@@ -44,11 +44,17 @@ if [[ -d "$ROOT_DIR/Sources/YouTubeJack/Resources" ]]; then
   ditto "$ROOT_DIR/Sources/YouTubeJack/Resources" "$APP_CONTENTS/Resources"
 fi
 
+youtubejack_copy_localization_resources "$APP_CONTENTS/Resources"
+
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array><string>en</string><string>tr</string></array>
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>

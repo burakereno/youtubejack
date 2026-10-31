@@ -12,17 +12,17 @@ public enum YTDLPUpdateError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .releaseAssetMissing:
-            return "yt-dlp macOS release dosyası bulunamadı."
+            return L10n.string("The yt-dlp macOS release asset was not found.")
         case .releaseVersionMissing:
-            return "yt-dlp release sürümü bulunamadı."
+            return L10n.string("The yt-dlp release version was not found.")
         case .checksumMissing:
-            return "yt-dlp checksum bilgisi bulunamadı."
+            return L10n.string("The yt-dlp checksum was not found.")
         case .checksumMismatch:
-            return "yt-dlp checksum doğrulaması başarısız."
+            return L10n.string("yt-dlp checksum verification failed.")
         case .untrustedReleaseURL:
-            return "yt-dlp release URL doğrulaması başarısız."
+            return L10n.string("yt-dlp release URL verification failed.")
         case .downloadFailed(let statusCode):
-            return "yt-dlp indirme isteği başarısız: HTTP \(statusCode)."
+            return L10n.string("yt-dlp download failed: HTTP %lld.", defaultValue: "yt-dlp download failed: HTTP \(statusCode).")
         }
     }
 }

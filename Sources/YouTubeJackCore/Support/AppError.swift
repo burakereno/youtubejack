@@ -12,17 +12,17 @@ public enum AppError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidYouTubeURL:
-            return "Geçerli bir YouTube video veya playlist linki değil."
+            return L10n.string("This is not a valid YouTube video or playlist link.")
         case .missingDependency(let name):
-            return "\(name) uygulama içinde bulunamadı. Uygulamayı yeniden kur veya Araçlar bölümünden yt-dlp'yi güncelle."
+            return L10n.string("%@ was not found in the app. Reinstall the app or update yt-dlp from the Tools section.", defaultValue: "\(name) was not found in the app. Reinstall the app or update yt-dlp from the Tools section.")
         case .metadataDecodeFailed:
-            return "Video bilgisi okunamadı."
+            return L10n.string("Could not read video information.")
         case .noMediaLoaded:
-            return "Önce bir video veya playlist algılanmalı."
+            return L10n.string("Analyze a video or playlist first.")
         case .noPlaylistSelection:
-            return "Playlist içinde seçili video yok."
+            return L10n.string("No playlist videos are selected.")
         case .outputDirectoryUnavailable(let path):
-            return "İndirme klasörü hazırlanamadı: \(path)"
+            return L10n.string("Could not prepare the download folder: %@", defaultValue: "Could not prepare the download folder: \(path)")
         case .processFailed(let message):
             return message
         }

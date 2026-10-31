@@ -1,4 +1,5 @@
 import Foundation
+import YouTubeJackCore
 
 enum DisplayFormatters {
     static func duration(_ seconds: Double?) -> String {
@@ -20,8 +21,8 @@ enum DisplayFormatters {
     static func fileSize(_ bytes: Int64) -> String {
         let megabytes = Double(bytes) / 1_000_000
         if megabytes < 10 {
-            return String(format: "%.1f MB", megabytes)
+            return String(format: "%.1f MB", locale: L10n.locale, megabytes)
         }
-        return String(format: "%.0f MB", megabytes)
+        return String(format: "%.0f MB", locale: L10n.locale, megabytes)
     }
 }

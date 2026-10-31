@@ -1,3 +1,4 @@
+import YouTubeJackCore
 import SwiftUI
 
 struct ToolbarUpdateButton: View {
@@ -13,12 +14,12 @@ struct ToolbarUpdateButton: View {
             }
         } label: {
             if updater.isInstalling {
-                Label("Yeniden başlatılıyor…", systemImage: "arrow.clockwise")
+                Label(L10n.string("Restarting…"), systemImage: "arrow.clockwise")
             } else if updater.isDownloading {
-                Label("İndiriliyor %\(Int(updater.downloadProgress * 100))", systemImage: "arrow.down.circle")
+                Label(L10n.string("Downloading %lld%%", defaultValue: "Downloading \(Int(updater.downloadProgress * 100))%"), systemImage: "arrow.down.circle")
                     .monospacedDigit()
             } else {
-                Label("Güncelle", systemImage: "arrow.down.circle.fill")
+                Label(L10n.string("Update"), systemImage: "arrow.down.circle.fill")
             }
         }
         .labelStyle(.titleAndIcon)
@@ -28,7 +29,7 @@ struct ToolbarUpdateButton: View {
         .tint(.green)
         .disabled(updater.isDownloading || updater.isInstalling)
         .help(updater.isPreviewingUpdate
-              ? "Güncelleme düğmesi önizlemesi; bilgi panelini açar"
-              : "YouTubeJack \(updater.latestVersion ?? "") indir ve kur")
+              ? L10n.string("Update button preview; opens the info panel")
+              : L10n.string("Download and install YouTubeJack %@", defaultValue: "Download and install YouTubeJack \(updater.latestVersion ?? "")"))
     }
 }

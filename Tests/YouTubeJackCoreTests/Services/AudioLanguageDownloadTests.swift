@@ -49,8 +49,8 @@ struct AudioLanguageDownloadTests {
             _ = try await DownloadService(dependencyResolver: fixture.resolver).download(item: fixture.item, outputDirectory: fixture.root.path, onProgress: { _ in }, onOutputPath: { _ in })
             Issue.record("A missing requested dub must not report a completed original-language download.")
         } catch {
-            #expect(error.localizedDescription.contains("Türkçe"))
-            #expect(error.localizedDescription.contains("bulunamadı"))
+            #expect(error.localizedDescription.contains("Turkish"))
+            #expect(error.localizedDescription.contains("unavailable"))
         }
         let calls = try String(contentsOf: fixture.root.appendingPathComponent("calls"))
         for call in calls.components(separatedBy: "---\n") where call.isEmpty == false { #expect(call.contains("[language=tr]")) }

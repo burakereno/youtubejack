@@ -14,7 +14,7 @@ public enum QualityProfile: String, CaseIterable, Codable, Identifiable, Sendabl
     public var title: String {
         switch self {
         case .best:
-            return "En iyi"
+            return L10n.string("Best")
         case .q2160:
             return "2160p"
         case .q1440:
@@ -26,20 +26,20 @@ public enum QualityProfile: String, CaseIterable, Codable, Identifiable, Sendabl
         case .q480:
             return "480p"
         case .audioM4A:
-            return "Ses"
+            return L10n.string("Audio")
         }
     }
 
     public var detail: String {
         switch self {
         case .best:
-            return "Mevcut en iyi video ve ses; WebM gelebilir"
+            return L10n.string("Best available video and audio; the result may be WebM")
         case .q2160, .q1440:
-            return "Kaliteyi korur; WebM gelebilir"
+            return L10n.string("Preserves quality; the result may be WebM")
         case .q1080, .q720, .q480:
-            return "MP4 uyumlu video ve ses tercih edilir"
+            return L10n.string("Prefers MP4-compatible video and audio")
         case .audioM4A:
-            return "M4A ses dosyası"
+            return L10n.string("M4A audio file")
         }
     }
 

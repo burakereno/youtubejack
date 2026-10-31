@@ -22,11 +22,11 @@ public struct DependencyStatus: Equatable, Sendable {
     public var summary: String {
         if let ytdlp {
             if ffmpeg == nil {
-                return "yt-dlp hazır (\(ytdlp.origin.title)), ffmpeg eksik"
+                return L10n.string("yt-dlp is ready (%@), ffmpeg is missing", defaultValue: "yt-dlp is ready (\(ytdlp.origin.title)), ffmpeg is missing")
             }
-            return "Araçlar hazır: \(ytdlp.origin.title)"
+            return L10n.string("Tools ready: %@", defaultValue: "Tools ready: \(ytdlp.origin.title)")
         }
-        return "yt-dlp bulunamadı"
+        return L10n.string("yt-dlp was not found")
     }
 }
 
@@ -38,11 +38,11 @@ public enum RuntimeToolOrigin: String, Codable, Sendable {
     public var title: String {
         switch self {
         case .managed:
-            return "yönetilen"
+            return L10n.string("managed")
         case .bundled:
-            return "uygulama içi"
+            return L10n.string("bundled")
         case .system:
-            return "sistem"
+            return L10n.string("system")
         }
     }
 }

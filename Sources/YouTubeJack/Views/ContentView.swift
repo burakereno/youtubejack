@@ -44,16 +44,16 @@ struct ContentView: View {
                 Button {
                     model.toggleUpdatePanel()
                 } label: {
-                    Label("Bilgi ve güncellemeler", systemImage: "info")
+                    Label(L10n.string("Info and updates"), systemImage: "info")
                 }
-                .help(model.isUpdatePanelPresented ? "Güncellemeleri kapat" : "Bilgi ve güncellemeleri aç")
+                .help(model.isUpdatePanelPresented ? L10n.string("Close updates") : L10n.string("Open info and updates"))
 
                 Button {
                     model.toggleSettingsPanel()
                 } label: {
-                    Label("Ayarlar", systemImage: "gearshape")
+                    Label(L10n.string("Settings"), systemImage: "gearshape")
                 }
-                .help(model.isSettingsPanelPresented ? "Ayarları kapat" : "Ayarları aç")
+                .help(model.isSettingsPanelPresented ? L10n.string("Close settings") : L10n.string("Open settings"))
             }
         }
         .animation(.smooth(duration: 0.32), value: model.isSettingsPanelPresented)
@@ -214,7 +214,7 @@ struct ContentView: View {
             Spacer(minLength: 0)
 
             if model.isAnalyzing {
-                AnalysisStatusPill(title: "Önizleme alınıyor")
+                AnalysisStatusPill(title: L10n.string("Loading preview"))
             } else if model.isAnalyzingFormats {
                 AnalysisStatusPill(
                     title: model.formatAnalysisTitle,
@@ -310,9 +310,9 @@ private struct EmptyStateView: View {
             Image(systemName: "link.badge.plus")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text("YouTube linki bekleniyor")
+            Text(L10n.string("Waiting for a YouTube link"))
                 .font(.title3.weight(.semibold))
-            Text("Video veya playlist linki yapıştır.")
+            Text(L10n.string("Paste a video or playlist link."))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 180)

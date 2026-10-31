@@ -9,7 +9,7 @@ public enum VideoCodecPreference: String, CaseIterable, Codable, Identifiable, S
 
     public var title: String {
         switch self {
-        case .automatic: return "Otomatik"
+        case .automatic: return L10n.string("Automatic")
         case .h264: return "H.264"
         case .av1: return "AV1"
         }

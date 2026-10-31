@@ -22,6 +22,8 @@
 
 ## Features
 
+- **App language** — English by default, with English and Türkçe choices in Settings; the choice is saved separately from download audio and subtitle languages
+
 - **Native preview** — paste a YouTube video or playlist URL and fetch title, channel, duration, and thumbnail
 - **Resolution-aware choices** — only available video resolutions, codecs, and container formats are enabled
 - **Video codec control** — choose automatic, H.264, or AV1 and see the selected video and audio codecs in the queue
@@ -38,11 +40,11 @@
 - **One-click app updates** — checks GitHub releases, downloads the latest DMG, and installs it
 - **Native macOS** — SwiftUI app, Developer ID release workflow, polished drag-to-Applications DMG
 
-Use the **ⓘ** button next to the settings button for app updates, yt-dlp updates, and tool status. Both open matching side drawers, with one drawer visible at a time. The settings drawer contains download defaults, clipboard behavior, and the download folder.
+Use the **ⓘ** button next to the settings button for app updates, yt-dlp updates, and tool status. Both open matching side drawers, with one drawer visible at a time. The settings drawer contains the app language, download defaults, clipboard behavior, and the download folder. App text changes immediately when you select a language; restart the app to refresh system menus. English is used on first launch regardless of the system language.
 
-Enable **Altyazı ekle** below the quality controls to choose **Videoya ekle** (embedded tracks) or **Ayrı dosya kaydet** (SRT/VTT) from the **Kaydetme biçimi** menu next to **Diller**. Caption availability is checked per video, including playlist entries. Missing or failed captions are reported in the queue while the video remains downloaded. Subtitle preferences are saved with each queued item; audio-only downloads do not include subtitles.
+Enable **Include subtitles** below the quality controls to choose **Embed in video** (embedded tracks) or **Save separate file** (SRT/VTT) from the **Save as** menu next to **Languages**. Caption availability is checked per video, including playlist entries. Missing or failed captions are reported in the queue while the video remains downloaded. Subtitle preferences are saved with each queued item; audio-only downloads do not include subtitles.
 
-Use **Ses dili** to choose an existing audio track. **Orijinal** is selected for each new video or playlist. Playlist options are built from the selected videos' metadata, with progress shown while checking. Changing the selection updates available resolutions, codecs, containers, audio languages and subtitles; videos without captions disable the subtitle switch. Options found in only part of a playlist are checked again per download. If the chosen audio language is unavailable, that item reports an error instead of downloading another language. Audio-only downloads also honor the language selection. A metadata failure is shown as unknown availability and can be retried by analyzing the same link again.
+Use **Audio language** to choose an existing audio track. **Original** is selected for each new video or playlist. Playlist options are built from the selected videos' metadata, with progress shown while checking. Changing the selection updates available resolutions, codecs, containers, audio languages and subtitles; videos without captions disable the subtitle switch. Options found in only part of a playlist are checked again per download. If the chosen audio language is unavailable, that item reports an error instead of downloading another language. Audio-only downloads also honor the language selection. A metadata failure is shown as unknown availability and can be retried by analyzing the same link again.
 
 ## Installation
 
@@ -54,11 +56,11 @@ Use **Ses dili** to choose an existing audio track. **Orijinal** is selected for
 
 Release downloads are Developer ID signed and notarized. Use YouTubeJack only for media you have the right to download.
 
-YouTubeJack checks for app updates silently at launch and every two hours while the app is running. When a newer release is available, a green **Güncelle** button appears beside the info and settings buttons. Manual checks and update status are available in the info drawer. Automatic check failures stay silent; manual checks show errors in the drawer.
+YouTubeJack checks for app updates silently at launch and every two hours while the app is running. When a newer release is available, a green **Update** button appears beside the info and settings buttons. Manual checks and update status are available in the info drawer. Automatic check failures stay silent; manual checks show errors in the drawer.
 
 App installation waits until there are no pending or running downloads. Preparing an app update blocks new queue work, and the installer keeps the previous app until the expected new version confirms that it opened from the installed location.
 
-Downloaded filenames include the video ID and the download configuration, so videos with identical titles and different quality selections remain separate. Partial files live in a private folder for each queue item. Removing a failed or paused job cleans that folder and preserves completed media files. Resolution, format and codec defaults in Settings remain independent of the options available for the currently loaded video. Queue rows also provide a **Sırayı değiştir** menu for keyboard-accessible reordering.
+Downloaded filenames include the video ID and the download configuration, so videos with identical titles and different quality selections remain separate. Partial files live in a private folder for each queue item. Removing a failed or paused job cleans that folder and preserves completed media files. Resolution, format and codec defaults in Settings remain independent of the options available for the currently loaded video. Queue rows also provide a **Reorder** menu for keyboard-accessible reordering.
 
 ## Build from Source
 
@@ -80,7 +82,7 @@ python3 -m unittest discover -s Tests/BuildPipelineTests -v
 open ".build/YouTubeJack.app"
 ```
 
-Debug and release packaging share `script/macos_build.sh`. It passes the selected macOS SDK to both the Swift compiler and the clang linker driver, while keeping the deployment target at macOS 14. Every built binary is checked against the selected SDK; a stale SDK stamp, raised deployment target, or mismatched bundle metadata stops packaging.
+Debug and release packaging share `script/macos_build.sh` and copy the SwiftPM localization bundle into the app’s Resources folder. It passes the selected macOS SDK to both the Swift compiler and the clang linker driver, while keeping the deployment target at macOS 14. Every built binary is checked against the selected SDK; a stale SDK stamp, raised deployment target, or mismatched bundle metadata stops packaging.
 
 Use `./script/build_and_run.sh` for the local build-and-run flow, or `./script/build_and_run.sh --build-only` to stage a debug app without restarting running apps. A build without bundle staging is available through `./script/macos_build.sh debug` (or `release`).
 

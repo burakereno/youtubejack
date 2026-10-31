@@ -95,7 +95,7 @@ struct AppModelPlaylistTests {
         #expect(model.canIncludeSubtitles)
         #expect(model.queuedSubtitleOptions.isEnabled)
         #expect(model.queuedSubtitleOptions.languageCodes == ["en"])
-        #expect(model.formatSelectionDetail.contains("kontrol edilemedi"))
+        #expect(model.formatSelectionDetail.contains("Could not check options"))
         #expect(model.canAddToQueue)
         try FileManager.default.removeItem(at: fixture.directory.appendingPathComponent("failure-BBBBBBBBBBB"))
         await model.analyzeCurrentURL()

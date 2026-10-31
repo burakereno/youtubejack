@@ -52,7 +52,7 @@ struct QueueView: View {
     private var header: some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
-                Text("Kuyruk")
+                Text(L10n.string("Queue"))
                     .font(.headline)
 
                 Text("\(model.queue.count)")
@@ -62,7 +62,7 @@ struct QueueView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.secondary.opacity(0.10), in: Capsule())
-                    .accessibilityLabel("\(model.queue.count) öğe")
+                    .accessibilityLabel(L10n.string("%lld items", defaultValue: "\(model.queue.count) items"))
             }
             .accessibilityElement(children: .combine)
 
@@ -82,13 +82,13 @@ struct QueueView: View {
             Button(role: .destructive) {
                 model.clearQueue()
             } label: {
-                Label("Kuyruğu boşalt", systemImage: "trash")
+                Label(L10n.string("Clear queue"), systemImage: "trash")
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
             .controlSize(.large)
             .disabled(model.canClearQueue == false)
-            .help("Çalışan indirme hariç tüm öğeleri kuyruktan kaldır")
+            .help(L10n.string("Remove all items except the active download"))
         }
     }
 
@@ -99,10 +99,10 @@ struct QueueView: View {
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
 
-            Text("Kuyruk boş")
+            Text(L10n.string("Queue is empty"))
                 .font(.headline)
 
-            Text("Eklediğiniz videolar burada görünecek.")
+            Text(L10n.string("Videos you add will appear here."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -127,7 +127,7 @@ struct QueueView: View {
         HStack {
             Spacer()
             if draggedItemID != nil || isDroppingAtEnd {
-                Label("Sona bırak", systemImage: "arrow.down.to.line")
+                Label(L10n.string("Move to end"), systemImage: "arrow.down.to.line")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(isDroppingAtEnd ? Color.accentColor : .secondary)
             }
@@ -163,7 +163,7 @@ private struct DownloadQueueRow: View {
             if showsProgress {
                 ProgressView(value: item.progress)
                     .tint(.accentColor)
-                    .accessibilityLabel("İndirme ilerlemesi")
+                    .accessibilityLabel(L10n.string("Download progress"))
                     .accessibilityValue(DisplayFormatters.percent(item.progress))
             }
 
@@ -246,13 +246,13 @@ private struct DownloadQueueRow: View {
         HStack(spacing: 12) {
             Label(audioLanguageTitle, systemImage: "waveform")
                 .lineLimit(1)
-                .help("Ses dili: \(audioLanguageTitle)")
+                .help(L10n.string("Audio language: %@", defaultValue: "Audio language: \(audioLanguageTitle)"))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(sizeLabel)
                 .monospacedDigit()
                 .fixedSize()
-                .accessibilityLabel("Dosya boyutu: \(sizeLabel)")
+                .accessibilityLabel(L10n.string("File size: %@", defaultValue: "File size: \(sizeLabel)"))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -289,7 +289,7 @@ private struct DownloadQueueRow: View {
         if item.speed.isEmpty == false, item.speed != "Unknown", item.speed != "N/A" {
             Text(item.speed)
                 .fixedSize(horizontal: true, vertical: false)
-                .accessibilityLabel("İndirme hızı \(item.speed)")
+                .accessibilityLabel(L10n.string("Download speed %@", defaultValue: "Download speed \(item.speed)"))
         }
         if item.eta.isEmpty == false, item.eta != "Unknown", item.eta != "N/A" {
             Label("Kalan \(item.eta)", systemImage: "clock")
@@ -304,48 +304,48 @@ private struct DownloadQueueRow: View {
                     Button {
                         model.moveQueueItemUp(item)
                     } label: {
-                        Label("Yukarı taşı", systemImage: "arrow.up")
+                        Label(L10n.string("Move up"), systemImage: "arrow.up")
                     }
                     .disabled(model.canMoveUp(item) == false)
 
                     Button {
                         model.moveQueueItemDown(item)
                     } label: {
-                        Label("Aşağı taşı", systemImage: "arrow.down")
+                        Label(L10n.string("Move down"), systemImage: "arrow.down")
                     }
                     .disabled(model.canMoveDown(item) == false)
                 } label: {
-                    Label("Sırayı değiştir", systemImage: "arrow.up.arrow.down")
+                    Label(L10n.string("Reorder"), systemImage: "arrow.up.arrow.down")
                 }
                 .menuIndicator(.hidden)
                 .disabled(item.status == .running)
-                .help("Kuyruktaki sırayı değiştir")
+                .help(L10n.string("Change queue order"))
             }
 
             if item.status == .failed || item.status == .cancelled {
                 Button {
                     model.retry(item)
                 } label: {
-                    Label("Yeniden dene", systemImage: "arrow.clockwise")
+                    Label(L10n.string("Retry"), systemImage: "arrow.clockwise")
                 }
-                .help("Yeniden dene")
+                .help(L10n.string("Retry"))
             }
 
             if item.outputPath != nil {
                 Button {
                     model.revealInFinder(item)
                 } label: {
-                    Label("Finder’da göster", systemImage: "folder")
+                    Label(L10n.string("Show in Finder"), systemImage: "folder")
                 }
-                .help("Finder’da göster")
+                .help(L10n.string("Show in Finder"))
             }
 
             Button(role: .destructive) {
                 model.removeFromQueue(item)
             } label: {
-                Label("Kuyruktan kaldır", systemImage: "trash")
+                Label(L10n.string("Remove from queue"), systemImage: "trash")
             }
-            .help(item.status == .completed ? "Kuyruktan kaldır" : "Kuyruktan kaldır ve yarım dosyaları sil")
+            .help(item.status == .completed ? L10n.string("Remove from queue") : L10n.string("Remove from queue and delete partial files"))
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.bordered)
@@ -360,10 +360,10 @@ private struct DownloadQueueRow: View {
                     draggedItemID = item.id
                     return NSItemProvider(object: item.id.uuidString as NSString)
                 }
-                .help("Sürükleyerek sırayı değiştir")
+                .help(L10n.string("Drag to reorder"))
         } else {
             DragHandleView(isEnabled: false)
-                .help("Çalışan indirme taşınamaz")
+                .help(L10n.string("Active downloads cannot be moved"))
         }
     }
 
@@ -388,7 +388,7 @@ private struct DownloadQueueRow: View {
 
     private var formatLabel: String {
         if item.quality.isAudioOnly {
-            return "M4A · Yalnızca ses"
+            return L10n.string("M4A · Audio only")
         }
         if let format = item.selectedMediaFormat {
             let resolution = format.height.map { "\($0)p" } ?? item.quality.title
@@ -407,7 +407,7 @@ private struct DownloadQueueRow: View {
         if let estimatedSizeBytes = item.estimatedSizeBytes {
             return "≈ \(ByteCountFormatter.string(fromByteCount: estimatedSizeBytes, countStyle: .file))"
         }
-        return "Boyut bilinmiyor"
+        return L10n.string("Size unknown")
     }
 
     private var audioLanguageTitle: String {
@@ -428,6 +428,6 @@ private struct DragHandleView: View {
             .frame(width: 18, height: 24)
             .contentShape(Rectangle())
             .opacity(isEnabled ? 0.75 : 0.25)
-            .accessibilityLabel("Sıralama tutamacı")
+            .accessibilityLabel(L10n.string("Reorder handle"))
     }
 }
