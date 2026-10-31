@@ -4,7 +4,7 @@ public enum SubtitleDelivery: String, CaseIterable, Codable, Identifiable, Senda
     case embedded
     case separateFile
     public var id: String { rawValue }
-    public var title: String { self == .embedded ? "Videoya göm" : "Ayrı dosya" }
+    public var title: String { self == .embedded ? "Videoya ekle" : "Ayrı dosya kaydet" }
 }
 
 public enum SubtitleFormat: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -24,7 +24,7 @@ public struct SubtitleOptions: Equatable, Codable, Sendable {
     public init(
         isEnabled: Bool = false,
         languageCodes: [String] = ["tr"],
-        includesAutomatic: Bool = true,
+        includesAutomatic: Bool = false,
         delivery: SubtitleDelivery = .embedded,
         format: SubtitleFormat = .srt
     ) {

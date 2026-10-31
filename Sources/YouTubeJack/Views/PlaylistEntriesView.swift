@@ -4,24 +4,63 @@ import YouTubeJackCore
 struct PlaylistEntriesView: View {
     @EnvironmentObject private var model: AppModel
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                let selectedCount = model.playlistEntries.filter(\.isSelected).count
+    private var selectedCount: Int {
+        model.playlistEntries.filter(\.isSelected).count
+    }
 
-                Text("Playlist")
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+
+            Divider()
+
+            if model.playlistEntries.isEmpty {
+                ContentUnavailableView("Playlist boş", systemImage: "list.bullet.rectangle")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                playlistList
+            }
+
+            Divider()
+
+            AddToQueueButton(title: "\(selectedCount) videoyu kuyruğa ekle")
+                .padding(16)
+                .background(.bar)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Playlist videoları")
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Playlist", systemImage: "list.bullet.rectangle")
                     .font(.headline)
 
-                Text("\(selectedCount) seçili")
+                Spacer(minLength: 8)
+
+                Text("\(selectedCount) / \(model.playlistEntries.count) seçili")
+                    .font(.callout)
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
+            }
 
-                Spacer()
+            if let title = model.media?.title {
+                Text(title)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .help(title)
+            }
 
+            HStack(spacing: 12) {
                 Button {
                     model.setAllPlaylistEntries(true)
                 } label: {
                     Label("Tümünü Seç", systemImage: "checklist.checked")
                 }
+                .frame(maxWidth: .infinity)
                 .disabled(selectedCount == model.playlistEntries.count)
 
                 Button {
@@ -29,55 +68,34 @@ struct PlaylistEntriesView: View {
                 } label: {
                     Label("Seçimi Kaldır", systemImage: "checklist.unchecked")
                 }
+                .frame(maxWidth: .infinity)
                 .disabled(selectedCount == 0)
             }
-
-            playlistList
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
         }
+        .padding(16)
+        .background(.bar)
     }
 
     private var playlistList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach($model.playlistEntries) { $entry in
-                    PlaylistEntryRow(entry: $entry)
+                    VStack(spacing: 0) {
+                        PlaylistEntryRow(entry: $entry)
 
-                    if entry.id != model.playlistEntries.last?.id {
-                        Divider()
-                            .padding(.leading, 104)
+                        if entry.id != model.playlistEntries.last?.id {
+                            Divider()
+                                .padding(.leading, 156)
+                        }
                     }
                 }
             }
             .padding(.vertical, 6)
         }
         .scrollIndicators(.visible)
-        .frame(minHeight: 180, maxHeight: 280)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
-        )
-        .overlay(alignment: .bottom) {
-            if model.playlistEntries.count > 3 {
-                LinearGradient(
-                    colors: [.clear, Color.black.opacity(0.18)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 34)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .allowsHitTesting(false)
-            }
-        }
-        .overlay(alignment: .trailing) {
-            if model.playlistEntries.count > 3 {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.secondary.opacity(0.42))
-                    .frame(width: 4, height: 54)
-                    .padding(.trailing, 4)
-                    .allowsHitTesting(false)
-            }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -85,21 +103,42 @@ private struct PlaylistEntryRow: View {
     @Binding var entry: PlaylistEntry
 
     var body: some View {
+        Button {
+            entry.isSelected.toggle()
+        } label: {
+            rowContent
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(entry.isSelected ? Color.accentColor.opacity(0.06) : Color.clear)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(entry.index). \(entry.title)")
+        .accessibilityValue(entry.isSelected ? "Seçili" : "Seçili değil")
+        .accessibilityAddTraits(entry.isSelected ? .isSelected : [])
+        .help(entry.isSelected ? "Seçimi kaldır" : "Videoyu seç")
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 10) {
-            Toggle("", isOn: $entry.isSelected)
-                .labelsHidden()
+            Image(systemName: entry.isSelected ? "checkmark.square.fill" : "square")
+                .font(.system(size: 16))
+                .foregroundStyle(entry.isSelected ? Color.accentColor : Color.secondary)
+                .frame(width: 16)
+                .accessibilityHidden(true)
 
             Text("\(entry.index)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
+                .frame(width: 24, alignment: .trailing)
 
             ThumbnailView(url: entry.thumbnailURL)
                 .frame(width: 72, height: 42)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.title)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .help(entry.title)
 
                 HStack(spacing: 8) {
                     if entry.creator.isEmpty == false {
@@ -111,11 +150,10 @@ private struct PlaylistEntryRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

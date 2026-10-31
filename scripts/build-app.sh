@@ -43,11 +43,12 @@ if [[ "${YOUTUBEJACK_PREPARE_RUNTIME:-1}" != "0" ]]; then
   "$ROOT_DIR/script/prepare_runtime_tools.sh"
 fi
 
-swift build -c release
+source "$ROOT_DIR/script/macos_build.sh"
+youtubejack_build_macos release
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$ROOT_DIR/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$YOUTUBEJACK_MACOS_BINARY" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
 if [[ -d "$APP_RESOURCES" ]]; then
@@ -84,6 +85,10 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>public.app-category.utilities</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_MACOS_VERSION</string>
+  <key>DTSDKName</key>
+  <string>$YOUTUBEJACK_MACOS_SDK_NAME</string>
+  <key>DTSDKBuild</key>
+  <string>$YOUTUBEJACK_MACOS_SDK_BUILD</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSPrincipalClass</key>
@@ -91,6 +96,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+youtubejack_verify_macos_binary "$MACOS_DIR/$APP_NAME" --info-plist "$CONTENTS_DIR/Info.plist"
 
 signing_common_args=(--force --options runtime --sign "$CODESIGN_IDENTITY")
 if [[ "$CODESIGN_IDENTITY" != "-" ]]; then

@@ -9,80 +9,106 @@ struct QueueView: View {
     @State private var isDroppingAtEnd = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
+        VStack(alignment: .leading, spacing: 16) {
+            header
+
+            if model.queue.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(model.queue) { item in
+                            DownloadQueueRow(
+                                item: item,
+                                draggedItemID: $draggedItemID,
+                                isDropTarget: dropTargetID == item.id
+                            )
+                            .opacity(draggedItemID == item.id ? 0.62 : 1)
+                            .onDrop(of: [UTType.text], isTargeted: dropTargetBinding(for: item.id)) { _ in
+                                guard let draggedItemID else { return false }
+                                model.moveQueueItem(draggedID: draggedItemID, before: item.id)
+                                self.draggedItemID = nil
+                                self.dropTargetID = nil
+                                return true
+                            }
+                        }
+
+                        endDropTarget
+                            .onDrop(of: [UTType.text], isTargeted: $isDroppingAtEnd) { _ in
+                                guard let draggedItemID else { return false }
+                                model.moveQueueItemToEnd(draggedItemID)
+                                self.draggedItemID = nil
+                                self.isDroppingAtEnd = false
+                                return true
+                            }
+                    }
+                }
+                .scrollIndicators(.visible)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Text("Kuyruk")
                     .font(.headline)
 
-                if model.queue.isEmpty == false {
-                    Text("\(model.queue.count) öğe")
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Button {
-                    model.toggleQueuePlayback()
-                } label: {
-                    Label(model.queueControlTitle, systemImage: model.queueControlIcon)
-                }
-                .labelStyle(.iconOnly)
-                .disabled(model.canToggleQueue == false)
-                .help(model.queueControlTitle)
-
-                Button {
-                    model.clearQueue()
-                } label: {
-                    Label("Kuyruğu Boşalt", systemImage: "trash")
-                }
-                .disabled(model.canClearQueue == false)
-                .help("Çalışan indirme hariç tüm öğeleri kuyruktan kaldır")
+                Text("\(model.queue.count)")
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.10), in: Capsule())
+                    .accessibilityLabel("\(model.queue.count) öğe")
             }
+            .accessibilityElement(children: .combine)
 
-	            if model.queue.isEmpty {
-	                Text("Kuyruk boş")
-	                    .foregroundStyle(.secondary)
-	                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-	                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-	            } else {
-	                ScrollView {
-	                    VStack(spacing: 0) {
-	                        ForEach(model.queue) { item in
-	                            DownloadQueueRow(
-	                                item: item,
-	                                draggedItemID: $draggedItemID,
-	                                isDropTarget: dropTargetID == item.id
-	                            )
-	                                .environmentObject(model)
-	                                .opacity(draggedItemID == item.id ? 0.62 : 1)
-	                                .onDrop(of: [UTType.text], isTargeted: dropTargetBinding(for: item.id)) { _ in
-	                                    guard let draggedItemID else { return false }
-	                                    model.moveQueueItem(draggedID: draggedItemID, before: item.id)
-	                                    self.draggedItemID = nil
-	                                    self.dropTargetID = nil
-	                                    return true
-	                                }
-	                            if item.id != model.queue.last?.id {
-	                                Divider()
-	                            }
-	                        }
-	
-	                        endDropTarget
-	                            .onDrop(of: [UTType.text], isTargeted: $isDroppingAtEnd) { _ in
-	                                guard let draggedItemID else { return false }
-	                                model.moveQueueItemToEnd(draggedItemID)
-	                                self.draggedItemID = nil
-	                                self.isDroppingAtEnd = false
-	                                return true
-	                            }
-	                    }
-	                }
-	                .scrollIndicators(.visible)
-	                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-	            }
-	        }
-	        .frame(maxHeight: .infinity, alignment: .top)
-	    }
+            Spacer(minLength: 12)
+
+            Button {
+                model.toggleQueuePlayback()
+            } label: {
+                Label(model.queueControlTitle, systemImage: model.queueControlIcon)
+                    .lineLimit(1)
+            }
+            .modifier(NativeProminentButton())
+            .controlSize(.large)
+            .disabled(model.canToggleQueue == false)
+            .help(model.queueControlTitle)
+
+            Button(role: .destructive) {
+                model.clearQueue()
+            } label: {
+                Label("Kuyruğu boşalt", systemImage: "trash")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(model.canClearQueue == false)
+            .help("Çalışan indirme hariç tüm öğeleri kuyruktan kaldır")
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "tray")
+                .font(.system(size: 30))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+
+            Text("Kuyruk boş")
+                .font(.headline)
+
+            Text("Eklediğiniz videolar burada görünecek.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
     private func dropTargetBinding(for id: UUID) -> Binding<Bool> {
         Binding(
@@ -103,19 +129,17 @@ struct QueueView: View {
             if draggedItemID != nil || isDroppingAtEnd {
                 Label("Sona bırak", systemImage: "arrow.down.to.line")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(isDroppingAtEnd ? .orange : .secondary)
+                    .foregroundStyle(isDroppingAtEnd ? Color.accentColor : .secondary)
             }
             Spacer()
         }
-        .frame(height: draggedItemID == nil && isDroppingAtEnd == false ? 8 : 34)
+        .frame(height: draggedItemID == nil && isDroppingAtEnd == false ? 0 : 36)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isDroppingAtEnd ? Color.orange.opacity(0.18) : Color.clear)
+            Color.accentColor.opacity(isDroppingAtEnd ? 0.16 : 0.06),
+            in: RoundedRectangle(cornerRadius: AppControlMetrics.cornerRadius)
         )
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
     }
-	}
+}
 
 private struct DownloadQueueRow: View {
     @EnvironmentObject private var model: AppModel
@@ -124,43 +148,33 @@ private struct DownloadQueueRow: View {
     let isDropTarget: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             mediaHeader
+            mediaDetails
 
-            ProgressView(value: item.progress)
-                .opacity(item.status == .running || item.status == .completed ? 1 : 0.35)
-                .accessibilityLabel("İndirme ilerlemesi")
-                .accessibilityValue(DisplayFormatters.percent(item.progress))
+            if item.subtitles.isEnabled, item.quality.isVideoQuality {
+                Label("\(item.subtitles.summary) · \(item.subtitles.delivery.title)", systemImage: "captions.bubble")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help(item.subtitles.summary)
+            }
 
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(item.status.title)
-                            .foregroundStyle(iconColor)
-                        if item.status == .running || item.status == .completed {
-                            Text(DisplayFormatters.percent(item.progress))
-                                .monospacedDigit()
-                        }
-                    }
-                    .font(.caption.weight(.medium))
-                    .fixedSize(horizontal: true, vertical: false)
+            if showsProgress {
+                ProgressView(value: item.progress)
+                    .tint(.accentColor)
+                    .accessibilityLabel("İndirme ilerlemesi")
+                    .accessibilityValue(DisplayFormatters.percent(item.progress))
+            }
 
-                    if item.status == .running {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 12) { transferDetails }
-                            VStack(alignment: .leading, spacing: 4) { transferDetails }
-                        }
-                        .font(.caption)
-                        .monospacedDigit()
-                    }
+            if item.status == .running {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { transferDetails }
+                    VStack(alignment: .leading, spacing: 4) { transferDetails }
                 }
-                .lineLimit(1)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                rowActions
-                    .controlSize(.small)
-                    .fixedSize()
+                .monospacedDigit()
             }
 
             if let error = item.errorMessage {
@@ -181,33 +195,32 @@ private struct DownloadQueueRow: View {
                     .help(message)
                     .textSelection(.enabled)
             }
+
+            Divider()
+            statusRow
         }
-        .padding(12)
-        .contentShape(Rectangle())
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isDropTarget ? Color.orange.opacity(0.12) : Color.clear)
+            Color(nsColor: .controlBackgroundColor).opacity(0.65),
+            in: RoundedRectangle(cornerRadius: AppControlMetrics.cornerRadius)
         )
-        .overlay(alignment: .top) {
-            if isDropTarget {
-                Capsule()
-                    .fill(Color.orange.opacity(0.85))
-                    .frame(height: 3)
-                    .padding(.horizontal, 12)
-            }
+        .contentShape(RoundedRectangle(cornerRadius: AppControlMetrics.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppControlMetrics.cornerRadius)
+                .strokeBorder(
+                    isDropTarget ? Color.accentColor : Color.primary.opacity(0.08),
+                    lineWidth: isDropTarget ? 2 : 1
+                )
+                .allowsHitTesting(false)
         }
     }
 
     private var mediaHeader: some View {
-        HStack(spacing: 10) {
-            dragHandle
-
+        HStack(alignment: .top, spacing: 12) {
             ThumbnailView(url: item.thumbnailURL)
-                .frame(width: 92, height: 52)
-                .overlay(alignment: .bottomTrailing) {
-                    QueueStatusBadge(systemImage: iconName, color: iconColor)
-                        .padding(4)
-                }
+                .frame(width: 88, height: 50)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)
@@ -215,30 +228,60 @@ private struct DownloadQueueRow: View {
                     .lineLimit(2)
                     .help(item.title)
 
-                HStack(spacing: 5) {
-                    Text(formatLabel)
-                    Text("•")
-                    Text(sizeLabel)
-                }
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-                if item.subtitles.isEnabled, item.quality.isVideoQuality {
-                    Label("\(item.subtitles.delivery.title) · \(item.subtitles.summary)", systemImage: "captions.bubble")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .help(item.subtitles.summary)
-                }
-
-                Label(audioLanguageTitle, systemImage: "waveform")
+                Text(formatLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .help(formatLabel)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if model.queue.count > 1 {
+                dragHandle
+            }
         }
+    }
+
+    private var mediaDetails: some View {
+        HStack(spacing: 12) {
+            Label(audioLanguageTitle, systemImage: "waveform")
+                .lineLimit(1)
+                .help("Ses dili: \(audioLanguageTitle)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(sizeLabel)
+                .monospacedDigit()
+                .fixedSize()
+                .accessibilityLabel("Dosya boyutu: \(sizeLabel)")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private var statusRow: some View {
+        HStack(spacing: 8) {
+            Label(item.status.title, systemImage: iconName)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(iconColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(iconColor.opacity(0.10), in: Capsule())
+                .fixedSize()
+
+            if showsProgress {
+                Text(DisplayFormatters.percent(item.progress))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 8)
+            rowActions
+        }
+    }
+
+    private var showsProgress: Bool {
+        item.status == .running || (item.status == .pending && item.progress > 0)
     }
 
     @ViewBuilder
@@ -256,40 +299,62 @@ private struct DownloadQueueRow: View {
 
     private var rowActions: some View {
         HStack(spacing: 6) {
+            if model.queue.count > 1 {
+                Menu {
+                    Button {
+                        model.moveQueueItemUp(item)
+                    } label: {
+                        Label("Yukarı taşı", systemImage: "arrow.up")
+                    }
+                    .disabled(model.canMoveUp(item) == false)
+
+                    Button {
+                        model.moveQueueItemDown(item)
+                    } label: {
+                        Label("Aşağı taşı", systemImage: "arrow.down")
+                    }
+                    .disabled(model.canMoveDown(item) == false)
+                } label: {
+                    Label("Sırayı değiştir", systemImage: "arrow.up.arrow.down")
+                }
+                .menuIndicator(.hidden)
+                .disabled(item.status == .running)
+                .help("Kuyruktaki sırayı değiştir")
+            }
+
             if item.status == .failed || item.status == .cancelled {
                 Button {
                     model.retry(item)
                 } label: {
-                    Label("Yeniden Dene", systemImage: "arrow.clockwise")
+                    Label("Yeniden dene", systemImage: "arrow.clockwise")
                 }
-                .labelStyle(.iconOnly)
                 .help("Yeniden dene")
             }
-
-            Button {
-                model.removeFromQueue(item)
-            } label: {
-                Label("Sil", systemImage: "trash")
-            }
-            .labelStyle(.iconOnly)
-            .help(item.status == .completed ? "Kuyruktan kaldır" : "Kuyruktan kaldır ve yarım dosyaları sil")
 
             if item.outputPath != nil {
                 Button {
                     model.revealInFinder(item)
                 } label: {
-                    Label("Finder", systemImage: "magnifyingglass")
+                    Label("Finder’da göster", systemImage: "folder")
                 }
-                .labelStyle(.iconOnly)
-                .help("Finder'da göster")
+                .help("Finder’da göster")
             }
+
+            Button(role: .destructive) {
+                model.removeFromQueue(item)
+            } label: {
+                Label("Kuyruktan kaldır", systemImage: "trash")
+            }
+            .help(item.status == .completed ? "Kuyruktan kaldır" : "Kuyruktan kaldır ve yarım dosyaları sil")
         }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
     }
 
     @ViewBuilder
     private var dragHandle: some View {
-        let canDrag = item.status != .running && model.queue.count > 1
-        if canDrag {
+        if item.status != .running {
             DragHandleView(isEnabled: true)
                 .onDrag {
                     draggedItemID = item.id
@@ -298,43 +363,32 @@ private struct DownloadQueueRow: View {
                 .help("Sürükleyerek sırayı değiştir")
         } else {
             DragHandleView(isEnabled: false)
-                .help(item.status == .running ? "Çalışan indirme taşınamaz" : "Taşımak için en az iki öğe gerekir")
+                .help("Çalışan indirme taşınamaz")
         }
     }
 
     private var iconName: String {
         switch item.status {
-        case .pending:
-            return "clock"
-        case .running:
-            return "arrow.down.circle"
-        case .completed:
-            return "checkmark.circle"
-        case .failed:
-            return "exclamationmark.triangle"
-        case .cancelled:
-            return "stop.circle"
+        case .pending: return "clock"
+        case .running: return "arrow.down.circle"
+        case .completed: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        case .cancelled: return "stop.circle"
         }
     }
 
     private var iconColor: Color {
         switch item.status {
-        case .completed:
-            return .green
-        case .failed:
-            return .red
-        case .cancelled:
-            return .secondary
-        case .running:
-            return .accentColor
-        case .pending:
-            return .secondary
+        case .completed: return .green
+        case .failed: return .red
+        case .running: return .accentColor
+        case .pending, .cancelled: return .secondary
         }
     }
 
     private var formatLabel: String {
         if item.quality.isAudioOnly {
-            return "\(item.quality.title) · M4A"
+            return "M4A · Yalnızca ses"
         }
         if let format = item.selectedMediaFormat {
             let resolution = format.height.map { "\($0)p" } ?? item.quality.title
@@ -343,24 +397,24 @@ private struct DownloadQueueRow: View {
         if item.videoCodecPreference == .automatic {
             return "\(item.quality.title) · \(item.container.title)"
         }
-        return "\(item.quality.title) · \(item.videoCodecPreference.title) seçildi · \(item.container.title)"
+        return "\(item.quality.title) · \(item.videoCodecPreference.title) · \(item.container.title)"
     }
 
     private var sizeLabel: String {
         if let fileSizeBytes = item.fileSizeBytes {
-            return DisplayFormatters.fileSize(fileSizeBytes)
+            return ByteCountFormatter.string(fromByteCount: fileSizeBytes, countStyle: .file)
         }
         if let estimatedSizeBytes = item.estimatedSizeBytes {
-            return "~\(DisplayFormatters.fileSize(estimatedSizeBytes))"
+            return "≈ \(ByteCountFormatter.string(fromByteCount: estimatedSizeBytes, countStyle: .file))"
         }
         return "Boyut bilinmiyor"
     }
 
     private var audioLanguageTitle: String {
         if let actual = item.selectedMediaFormat?.audioLanguageCode {
-            return "Ses: \(AudioLanguageSelection(languageCode: actual, isOriginal: item.audioLanguage.isOriginal).title)"
+            return AudioLanguageSelection(languageCode: actual, isOriginal: item.audioLanguage.isOriginal).title
         }
-        return "Ses: \(item.audioLanguage.title)"
+        return item.audioLanguage.title
     }
 }
 
@@ -369,26 +423,11 @@ private struct DragHandleView: View {
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
-            .font(.title3.weight(.semibold))
+            .font(.callout.weight(.semibold))
             .foregroundStyle(.secondary)
-            .frame(width: 22, height: 42)
-            .opacity(isEnabled ? 0.85 : 0.25)
-    }
-}
-
-private struct QueueStatusBadge: View {
-    let systemImage: String
-    let color: Color
-
-    var body: some View {
-        Image(systemName: systemImage)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white)
-            .frame(width: 22, height: 22)
-            .background(color, in: Circle())
-            .overlay(
-                Circle()
-                    .stroke(.black.opacity(0.18), lineWidth: 1)
-            )
+            .frame(width: 18, height: 24)
+            .contentShape(Rectangle())
+            .opacity(isEnabled ? 0.75 : 0.25)
+            .accessibilityLabel("Sıralama tutamacı")
     }
 }

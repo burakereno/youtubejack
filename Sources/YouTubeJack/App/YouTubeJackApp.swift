@@ -5,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        UpdateChecker.shared.start()
+        Task { await UpdateChecker.shared.start() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -23,6 +23,7 @@ struct YouTubeJackApp: App {
             ContentView()
                 .environmentObject(model)
         }
+        .defaultSize(width: 1160, height: 740)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Ayarlar...") {
@@ -36,22 +37,26 @@ struct YouTubeJackApp: App {
                     Task { await model.analyzeCurrentURL() }
                 }
                 .keyboardShortcut(.return, modifiers: [.command])
+                .disabled(model.canAnalyze == false)
 
                 Button("Seçileni Kuyruğa Ekle") {
                     model.addSelectedToQueue()
                 }
                 .keyboardShortcut("d", modifiers: [.command])
+                .disabled(model.canAddToQueue == false || model.isAnyDrawerPresented)
 
                 Button(model.queueControlTitle) {
                     model.toggleQueuePlayback()
                 }
                 .keyboardShortcut(.space, modifiers: [.command])
+                .disabled(model.canToggleQueue == false || model.isAnyDrawerPresented)
 
                 Divider()
 
                 Button("Tamamlananları Temizle") {
                     model.clearFinished()
                 }
+                .disabled(model.isAnyDrawerPresented)
             }
         }
     }

@@ -3,6 +3,13 @@ import Testing
 @testable import YouTubeJackCore
 
 struct SubtitleOptionsTests {
+    @Test func automaticCaptionsRequireExplicitOptIn() throws {
+        let options = SubtitleOptions(isEnabled: true, languageCodes: ["tr"])
+        let info = try JSONDecoder().decode(YTDLPInfo.self, from: Data(#"{"automatic_captions":{"tr":[{}]}}"#.utf8))
+        #expect(options.includesAutomatic == false)
+        #expect(info.selectedSubtitles(for: options).isEmpty)
+    }
+
     @Test func metadataMergesSourcesAndPrioritizesTurkishAndEnglish() throws {
         let data = Data(#"{"subtitles":{"en":[{"ext":"vtt"}],"tr":[{"ext":"vtt"}],"de":[],"live_chat":[{}]},"automatic_captions":{"en":[{}],"fr":[{}],"../bad":[{}]}}"#.utf8)
         let info = try JSONDecoder().decode(YTDLPInfo.self, from: data)
@@ -33,7 +40,7 @@ struct SubtitleOptionsTests {
         let data = Data(#"{"subtitles":{"en-eEY6OEpapPo":[{}],"zh-Hans":[{}]},"automatic_captions":{"en":[{}],"en-orig":[{}],"tr":[{}]}}"#.utf8)
         let info = try JSONDecoder().decode(YTDLPInfo.self, from: data)
         #expect(info.subtitleAvailability.languages.map(\.code) == ["tr", "en", "zh-Hans"])
-        let tracks = info.selectedSubtitles(for: SubtitleOptions(isEnabled: true, languageCodes: ["en", "tr"]))
+        let tracks = info.selectedSubtitles(for: SubtitleOptions(isEnabled: true, languageCodes: ["en", "tr"], includesAutomatic: true))
         #expect(tracks.map(\.trackCode) == ["en-eEY6OEpapPo", "tr"])
         #expect(tracks.map(\.isAutomatic) == [false, true])
         let manualOnly = info.selectedSubtitles(for: SubtitleOptions(isEnabled: true, languageCodes: ["en", "tr"], includesAutomatic: false))

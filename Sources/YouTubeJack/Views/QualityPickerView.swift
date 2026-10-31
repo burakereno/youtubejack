@@ -5,125 +5,90 @@ struct QualityPickerView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("Çözünürlük")
-                    .font(.headline)
-
-                if let detail = model.maxResolutionDetail {
-                    Text(detail)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack(spacing: 4) {
-                ForEach(QualityProfile.allCases) { profile in
-                    let available = model.isQualityAvailable(profile)
-                    SegmentedChoiceButton(
-                        title: profile.title,
-                        systemImage: profile.systemImage,
-                        isSelected: model.selectedQuality == profile,
-                        isAvailable: available,
-                        unavailableHelp: "\(profile.title) bu videoda yok."
-                    ) {
-                        model.updateSelectedQuality(profile)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                DownloadOptionField("Çözünürlük", value: model.selectedQuality.title) {
+                    ForEach(QualityProfile.allCases) { profile in
+                        MenuChoice(
+                            title: profile.title,
+                            isSelected: model.selectedQuality == profile,
+                            isAvailable: model.isQualityAvailable(profile)
+                        ) {
+                            model.updateSelectedQuality(profile)
+                        }
                     }
                 }
-            }
 
-            if model.selectedQuality.isVideoQuality {
-                HStack(spacing: 8) {
-                    Text("Video codec’i")
-                        .font(.callout.weight(.semibold))
+                DownloadOptionField("Video codec’i", value: model.selectedQuality.isAudioOnly ? "Uygulanmaz" : model.selectedVideoCodec.title) {
                     ForEach(VideoCodecPreference.allCases) { codec in
-                        let available = model.isVideoCodecAvailable(codec)
-                        SegmentedChoiceButton(
+                        MenuChoice(
                             title: codec.title,
-                            systemImage: codec == .automatic ? "wand.and.stars" : "film",
                             isSelected: model.selectedVideoCodec == codec,
-                            isAvailable: available,
-                            unavailableHelp: "\(codec.title) bu çözünürlükte yok."
+                            isAvailable: model.isVideoCodecAvailable(codec)
                         ) {
                             model.updateSelectedVideoCodec(codec)
                         }
                     }
                 }
+                .disabled(model.selectedQuality.isAudioOnly)
 
-                HStack(spacing: 4) {
+                DownloadOptionField("Dosya biçimi", value: model.selectedQuality.isAudioOnly ? "M4A" : model.selectedContainer.title) {
                     ForEach(DownloadContainer.allCases) { container in
-                        let available = model.isContainerAvailable(container, for: model.selectedQuality)
-                        SegmentedChoiceButton(
+                        MenuChoice(
                             title: container.title,
-                            systemImage: container.systemImage,
                             isSelected: model.selectedContainer == container,
-                            isAvailable: available,
-                            unavailableHelp: "\(model.selectedQuality.title) ve \(model.selectedVideoCodec.title) için \(container.title) yok."
+                            isAvailable: model.isContainerAvailable(container, for: model.selectedQuality)
                         ) {
                             model.updateSelectedContainer(container)
                         }
                     }
                 }
+                .disabled(model.selectedQuality.isAudioOnly)
             }
 
-            if model.isAnalyzingFormats == false {
-                Text(model.formatSelectionDetail)
+            if let detail = selectionDetail {
+                Text(detail)
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .padding(.horizontal, 12)
+    }
+
+    private var selectionDetail: String? {
+        if model.media?.kind == .playlist { return model.formatSelectionDetail }
+        guard model.isAnalyzingFormats == false else { return nil }
+        if model.selectedQuality.isAudioOnly
+            || model.media?.formatAvailability.isKnown == false
+            || model.isQualityAvailable(model.selectedQuality) == false
+            || model.isContainerAvailable(model.selectedContainer, for: model.selectedQuality) == false {
+            return model.formatSelectionDetail
+        }
+        return model.maxResolutionDetail
     }
 }
 
-private struct SegmentedChoiceButton: View {
+private struct DownloadOptionField<Content: View>: View {
     let title: String
-    let systemImage: String
-    let isSelected: Bool
-    let isAvailable: Bool
-    let unavailableHelp: String
-    let action: () -> Void
+    let value: String
+    let content: Content
+
+    init(_ title: String, value: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.value = value
+        self.content = content()
+    }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: systemImage)
-                    .font(.caption)
-                Text(title)
-                    .strikethrough(isAvailable == false)
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.callout.weight(.semibold))
+
+            MenuField(title, value: value) {
+                content
             }
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(foregroundStyle)
-            .frame(minWidth: 72, minHeight: 32)
-            .padding(.horizontal, 8)
-            .background(backgroundShape)
-            .overlay(borderShape)
-            .opacity(isAvailable ? 1 : 0.42)
         }
-        .buttonStyle(.plain)
-        .disabled(isAvailable == false)
-        .help(isAvailable ? title : unavailableHelp)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private var foregroundStyle: Color {
-        if isAvailable == false {
-            return .secondary
-        }
-        if isSelected {
-            return .white
-        }
-        return .primary
-    }
-
-    private var backgroundShape: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .fill(isSelected && isAvailable ? Color.accentColor : Color.secondary.opacity(0.12))
-    }
-
-    private var borderShape: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .stroke(isAvailable ? Color.clear : Color.secondary.opacity(0.35), lineWidth: 1)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

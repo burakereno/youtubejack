@@ -139,8 +139,8 @@ public final class ProcessRunner: Sendable {
     ) async -> String {
         await Task.detached(priority: .utility) {
             var collected = Data()
-            var buffer = ""
-            let maxLineBufferCharacters = 65_536
+            var buffer = Data()
+            let maxLineBufferBytes = 262_144
 
             while true {
                 let data = fileHandle.availableData
@@ -148,7 +148,6 @@ public final class ProcessRunner: Sendable {
                     break
                 }
 
-                let chunk = String(data: data, encoding: .utf8) ?? ""
                 if collectOutput, maxCollectedOutputBytes == nil {
                     collected.append(data)
                 } else if collectOutput, let maxCollectedOutputBytes, maxCollectedOutputBytes > 0 {
@@ -163,22 +162,28 @@ public final class ProcessRunner: Sendable {
                         collected.append(contentsOf: data.prefix(remaining))
                     }
                 }
-                buffer += chunk
+                buffer.append(data)
 
-                while let newlineRange = buffer.range(of: "\n") {
-                    let line = String(buffer[..<newlineRange.lowerBound])
+                while let newline = buffer.firstIndex(of: 0x0A) {
+                    let line = String(decoding: buffer[..<newline], as: UTF8.self)
                     onLine?(line.trimmingCharacters(in: .newlines))
-                    buffer.removeSubrange(buffer.startIndex..<newlineRange.upperBound)
+                    buffer.removeSubrange(buffer.startIndex...newline)
                 }
 
-                if buffer.count > maxLineBufferCharacters {
-                    onLine?(buffer.trimmingCharacters(in: .newlines))
-                    buffer.removeAll(keepingCapacity: true)
+                if buffer.count > maxLineBufferBytes {
+                    // Preserve up to three trailing bytes when a UTF-8 scalar is split across reads.
+                    var completeBytes = buffer.count
+                    for _ in 0..<3 {
+                        if String(data: buffer.prefix(completeBytes), encoding: .utf8) != nil { break }
+                        completeBytes -= 1
+                    }
+                    onLine?(String(decoding: buffer.prefix(completeBytes), as: UTF8.self).trimmingCharacters(in: .newlines))
+                    buffer.removeFirst(completeBytes)
                 }
             }
 
             if buffer.isEmpty == false {
-                onLine?(buffer.trimmingCharacters(in: .newlines))
+                onLine?(String(decoding: buffer, as: UTF8.self).trimmingCharacters(in: .newlines))
             }
             return String(decoding: collected, as: UTF8.self)
         }.value

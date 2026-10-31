@@ -6,23 +6,29 @@ struct URLInputBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "link")
+                .font(.body.weight(.medium))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
-            TextField("YouTube linki", text: $model.inputURL)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit {
-                    Task { await model.analyzeCurrentURL() }
-                }
-                .onChange(of: model.inputURL) {
-                    model.scheduleAnalyzeForCurrentURL()
-                }
+            NativeURLInputField(text: $model.inputURL) {
+                Task { await model.analyzeCurrentURL() }
+            }
+            .frame(height: NativeURLInputField.height)
+            .onChange(of: model.inputURL) {
+                model.scheduleAnalyzeForCurrentURL()
+            }
 
             Button {
                 model.clearCurrentInput()
             } label: {
-                Label("Temizle", systemImage: "xmark.circle")
+                Label("Temizle", systemImage: "xmark")
             }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.circle)
+            .controlSize(.extraLarge)
             .labelStyle(.iconOnly)
+            .modifier(FlexibleControlSizing())
+            .frame(width: AppControlMetrics.height, height: AppControlMetrics.height)
             .disabled(model.inputURL.isEmpty)
             .help("Temizle")
         }

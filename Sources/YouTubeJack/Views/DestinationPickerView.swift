@@ -2,7 +2,13 @@ import AppKit
 import SwiftUI
 
 struct DestinationPickerView: View {
+    enum Style: Equatable {
+        case card
+        case bar
+    }
+
     @AppStorage(AppPreferenceKeys.downloadDirectory) private var downloadDirectory = AppPreferenceDefaults.downloadDirectory
+    var style: Style = .card
 
     var body: some View {
         HStack(spacing: 10) {
@@ -22,9 +28,17 @@ struct DestinationPickerView: View {
             } label: {
                 Label("Seç", systemImage: "folder.badge.plus")
             }
+            .buttonStyle(.bordered)
+            .controlSize(.extraLarge)
+            .frame(height: AppControlMetrics.height)
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .padding(style == .card ? 12 : 0)
+        .background {
+            if style == .card {
+                RoundedRectangle(cornerRadius: AppControlMetrics.cornerRadius)
+                    .fill(.thinMaterial)
+            }
+        }
     }
 
     private func chooseDirectory() {

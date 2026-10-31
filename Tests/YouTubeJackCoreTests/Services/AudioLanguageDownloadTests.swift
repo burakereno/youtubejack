@@ -63,7 +63,7 @@ struct AudioLanguageDownloadTests {
         _ = try await DownloadService(dependencyResolver: fixture.resolver).download(item: original, outputDirectory: fixture.root.path, onProgress: { _ in }, onOutputPath: { _ in })
         let calls = try String(contentsOf: fixture.root.appendingPathComponent("calls"))
         #expect(calls.contains("[language=fr]"))
-        #expect(calls.contains("%(title).200B.%(ext)s"))
+        #expect(calls.contains("%(title).120B [%(id)s]"))
         #expect(calls.contains(" [fr].%(ext)s") == false)
     }
 }

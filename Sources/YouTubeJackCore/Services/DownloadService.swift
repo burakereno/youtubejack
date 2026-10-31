@@ -1,10 +1,10 @@
+import CryptoKit
 import Foundation
 
 public final class DownloadService {
     private let dependencyResolver: DependencyResolver
     private let processRunner: ProcessRunner
-    private var activeProcess: Process?
-    private var isCancelled = false
+    private let control = DownloadCancellationControl()
 
     public init(
         dependencyResolver: DependencyResolver = DependencyResolver(),
@@ -15,8 +15,7 @@ public final class DownloadService {
     }
 
     public func cancelCurrentDownload() {
-        isCancelled = true
-        activeProcess?.terminate()
+        control.cancel()
     }
 
     public func download(
@@ -29,9 +28,12 @@ public final class DownloadService {
         onSubtitleMessage: @escaping (String?) -> Void = { _ in },
         onArtifactPath: @escaping (String) -> Void = { _ in }
     ) async throws -> String? {
-        isCancelled = false
+        try Task.checkCancellation()
+        control.begin()
         let ytdlp = try dependencyResolver.requireYTDLP()
         try ensureDirectoryExists(outputDirectory)
+        let workspace = DownloadWorkspace(outputDirectory: outputDirectory, itemID: item.id)
+        try workspace.prepare()
 
         var lastOutputPath: String?
         var firstForbiddenError: Error?
@@ -68,14 +70,13 @@ public final class DownloadService {
                     },
                     onStderrLine: { _ in },
                     onProcessStarted: { [weak self] process in
-                        self?.activeProcess = process
-                        if self?.isCancelled == true { process.terminate() }
+                        self?.control.setProcess(process)
                     },
                     timeout: 21_600,
                     maxCollectedOutputBytes: 16_384,
                     collectOutput: false
                 )
-                activeProcess = nil
+                control.setProcess(nil)
                 try checkCancellation()
                 if item.quality.isVideoQuality, item.subtitles.isEnabled, item.subtitles.languageCodes.isEmpty == false {
                     if let path = lastOutputPath {
@@ -86,12 +87,11 @@ public final class DownloadService {
                                 item: actualItem, videoPath: path, onMessage: onSubtitleMessage,
                                 run: { executable, arguments in
                                     try self.checkCancellation()
-                                    defer { self.activeProcess = nil }
+                                    defer { self.control.setProcess(nil) }
                                     let result = try await self.processRunner.run(
                                         executablePath: executable, arguments: arguments,
                                         onProcessStarted: { process in
-                                            self.activeProcess = process
-                                            if self.isCancelled { process.terminate() }
+                                            self.control.setProcess(process)
                                         },
                                         timeout: 600, maxCollectedOutputBytes: arguments.contains("--dump-single-json") ? nil : 16_384
                                     )
@@ -109,9 +109,10 @@ public final class DownloadService {
                         onSubtitleMessage("Altyazı eklenemedi: video dosyasının yolu bulunamadı.")
                     }
                 }
+                DownloadArtifactCleaner().removeWorkspace(at: workspace.directory.path, itemID: item.id)
                 return lastOutputPath
             } catch {
-                activeProcess = nil
+                control.setProcess(nil)
                 try checkCancellation()
 
                 if isForbidden(error) {
@@ -189,6 +190,10 @@ public final class DownloadService {
             "--no-warnings",
             "--no-cache-dir",
             "--no-playlist",
+            "--paths", "home:\(outputDirectory)",
+            "--paths", "temp:\(DownloadWorkspace(outputDirectory: outputDirectory, itemID: item.id).directory.path)",
+            "--print", "after_move:download-output:%(filepath)s",
+            "--no-simulate", "--no-quiet", "--progress",
             "--retries", "3",
             "--fragment-retries", "3",
             "--retry-sleep", "http:linear=1::1",
@@ -214,9 +219,7 @@ public final class DownloadService {
                 "-f", item.quality.formatSelector(container: attempt.container, codec: item.videoCodecPreference, audioLanguage: item.audioLanguage),
                 "--merge-output-format", attempt.container.rawValue,
                 "--remux-video", attempt.container.rawValue,
-                "--print", "before_dl:download-codecs:%(height)s|%(vcodec)s|%(acodec)s|%(requested_formats.-1.language,language|NA)s",
-                "--print", "after_move:download-output:%(filepath)s",
-                "--no-simulate", "--no-quiet", "--progress"
+                "--print", "before_dl:download-codecs:%(height)s|%(vcodec)s|%(acodec)s|%(requested_formats.-1.language,language|NA)s"
             ])
         }
 
@@ -224,7 +227,7 @@ public final class DownloadService {
             arguments.append(contentsOf: ["--ffmpeg-location", ffmpegPath])
         }
 
-        arguments.append(contentsOf: ["-o", outputTemplate(for: item, outputDirectory: outputDirectory)])
+        arguments.append(contentsOf: ["-o", Self.outputTemplate(for: item)])
         arguments.append(item.url)
         return arguments
     }
@@ -236,7 +239,7 @@ public final class DownloadService {
 
     private func checkCancellation() throws {
         try Task.checkCancellation()
-        if isCancelled { throw CancellationError() }
+        if control.isCancelled { throw CancellationError() }
     }
 
     private func ensureDirectoryExists(_ path: String) throws {
@@ -247,7 +250,7 @@ public final class DownloadService {
         }
     }
 
-    private func outputTemplate(for item: DownloadItem, outputDirectory: String) -> String {
+    static func outputTemplate(for item: DownloadItem) -> String {
         let prefix: String
         if let playlistIndex = item.playlistIndex {
             prefix = String(format: "%03d - ", playlistIndex)
@@ -255,13 +258,44 @@ public final class DownloadService {
             prefix = ""
         }
         let languageSuffix = item.audioLanguage.isOriginal ? "" : item.audioLanguage.languageCode.map { " [\($0)]" } ?? ""
-        return URL(fileURLWithPath: outputDirectory)
-            .appendingPathComponent("\(prefix)%(title).200B\(languageSuffix).%(ext)s")
-            .path
+        let subtitles = item.subtitles.isEnabled ? item.subtitles : SubtitleOptions()
+        let configuration = [item.quality.rawValue, item.container.rawValue, item.videoCodecPreference.rawValue,
+                             item.audioLanguage.languageCode ?? "original", String(item.audioLanguage.isOriginal),
+                             String(subtitles.isEnabled), subtitles.languageCodes.sorted().joined(separator: ","),
+                             String(subtitles.includesAutomatic), subtitles.delivery.rawValue, subtitles.format.rawValue]
+            .joined(separator: "|")
+        let fingerprint = SHA256.hash(data: Data(configuration.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
+        return "\(prefix)%(title).120B [%(id)s] [\(item.quality.rawValue)-\(fingerprint)]\(languageSuffix).%(ext)s"
     }
 }
 
 private struct DownloadAttempt {
     let container: DownloadContainer
     let usesChunking: Bool
+}
+
+/// Process callbacks and the UI cancel from different executors. All mutable state is lock-protected.
+private final class DownloadCancellationControl: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    var isCancelled: Bool { lock.withLock { cancelled } }
+
+    func begin() {
+        lock.withLock { cancelled = false; process = nil }
+    }
+
+    func setProcess(_ process: Process?) {
+        let shouldTerminate = lock.withLock {
+            self.process = process
+            return cancelled
+        }
+        if shouldTerminate, process?.isRunning == true { process?.terminate() }
+    }
+
+    func cancel() {
+        let process = lock.withLock { cancelled = true; return self.process }
+        if process?.isRunning == true { process?.terminate() }
+    }
 }

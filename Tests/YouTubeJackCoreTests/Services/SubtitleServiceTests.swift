@@ -223,7 +223,7 @@ private struct SubtitleFixture: Sendable {
     }
 
     var outputNames: [String] {
-        get throws { try FileManager.default.contentsOfDirectory(atPath: output.path).sorted() }
+        get throws { try FileManager.default.contentsOfDirectory(at: output, includingPropertiesForKeys: nil, options: .skipsHiddenFiles).map(\.lastPathComponent).sorted() }
     }
 
     func clean() { try? FileManager.default.removeItem(at: root) }

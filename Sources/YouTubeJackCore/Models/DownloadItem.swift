@@ -43,6 +43,7 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
     public var eta: String
     public var outputPath: String?
     public var outputPaths: [String]
+    public var temporaryDirectoryPath: String?
     public var fileSizeBytes: Int64?
     public var errorMessage: String?
 
@@ -66,6 +67,7 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
         eta: String = "",
         outputPath: String? = nil,
         outputPaths: [String] = [],
+        temporaryDirectoryPath: String? = nil,
         fileSizeBytes: Int64? = nil,
         errorMessage: String? = nil
     ) {
@@ -88,6 +90,7 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
         self.eta = eta
         self.outputPath = outputPath
         self.outputPaths = outputPaths
+        self.temporaryDirectoryPath = temporaryDirectoryPath
         self.fileSizeBytes = fileSizeBytes
         self.errorMessage = errorMessage
     }

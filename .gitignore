@@ -2,6 +2,7 @@
 .build/
 dist/
 DerivedData/
+__pycache__/
 *.dmg
 *.zip
 *.xcuserdata/

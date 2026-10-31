@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +26,11 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Validate Build Guard
+        run: |
+          python3 -m unittest discover -s Tests/BuildPipelineTests -v
+          bash -n script/macos_build.sh script/build_and_run.sh scripts/build-app.sh
 
       - name: Validate Signing Secrets
         env:
@@ -116,6 +121,22 @@ jobs:
           BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" \
           CODESIGN_IDENTITY="${{ steps.signing.outputs.identity }}" \
           ./scripts/build-app.sh
+
+      - name: Test App and Runtime Workflows
+        env:
+          YOUTUBEJACK_TEST_YTDLP: ${{ github.workspace }}/.build/YouTubeJack.app/Contents/Resources/bin/yt-dlp
+          YOUTUBEJACK_TEST_FFMPEG: ${{ github.workspace }}/.build/YouTubeJack.app/Contents/Resources/bin/ffmpeg
+        run: |
+          SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+          xcrun swift test --sdk "$SDK_PATH" \
+            -Xswiftc -Xclang-linker -Xswiftc -isysroot \
+            -Xswiftc -Xclang-linker -Xswiftc "$SDK_PATH"
+
+      - name: Verify macOS SDK and Deployment Target
+        run: |
+          python3 script/verify_macos_sdk.py ".build/YouTubeJack.app/Contents/MacOS/YouTubeJack" \
+            --sdk "$(xcrun --sdk macosx --show-sdk-version)" \
+            --info-plist ".build/YouTubeJack.app/Contents/Info.plist"
 
       - name: Verify Built App Version
         run: |

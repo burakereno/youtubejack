@@ -16,6 +16,7 @@ enum UpdateSecurityError: LocalizedError, Equatable {
     case teamIdentifierMismatch
     case invalidChecksum
     case checksumMismatch
+    case invalidWorkDirectory
 
     var errorDescription: String? {
         switch self {
@@ -31,6 +32,8 @@ enum UpdateSecurityError: LocalizedError, Equatable {
             return "Update manifest SHA-256 is invalid."
         case .checksumMismatch:
             return "Downloaded update failed SHA-256 verification."
+        case .invalidWorkDirectory:
+            return "Güncellemenin geçici klasörü doğrulanamadı."
         }
     }
 }
@@ -90,6 +93,8 @@ enum UpdateSecurity {
         expectedSHA256: String
     ) throws {
         let workDirectory = dmgURL.deletingLastPathComponent()
+        guard UpdateArtifactDownloader.isOwnedDirectory(workDirectory) else { throw UpdateSecurityError.invalidWorkDirectory }
+        let launchConfirmation = workDirectory.appendingPathComponent(UpdateLaunchConfirmation.fileName)
         let scriptURL = workDirectory.appendingPathComponent("install-update.sh")
         try installerScript.write(to: scriptURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(
@@ -110,11 +115,13 @@ enum UpdateSecurity {
             burakTeamIdentifier,
             expectedSHA256,
             workDirectory.path,
+            launchConfirmation.path,
+            UUID().uuidString,
         ]
         try process.run()
     }
 
-    private static let installerScript = #"""
+    static let installerScript = #"""
     #!/bin/bash
     set -uo pipefail
 
@@ -129,6 +136,8 @@ enum UpdateSecurity {
     EXPECTED_SHA256="$9"
     shift 9
     WORK_DIR="$1"
+    CONFIRMATION="$2"
+    LAUNCH_TOKEN="$3"
 
     LOG="$WORK_DIR/install.log"
     MOUNT_POINT="$WORK_DIR/mount"
@@ -136,6 +145,7 @@ enum UpdateSecurity {
     STAGED_APP="$TARGET_PARENT/.$EXECUTABLE_NAME.update.$$"
     BACKUP_APP="$TARGET_PARENT/.$EXECUTABLE_NAME.previous.$$"
     MOUNT_ATTACHED=0
+    LAUNCHED_PID=""
 
     exec >"$LOG" 2>&1
 
@@ -155,6 +165,9 @@ enum UpdateSecurity {
     }
 
     rollback() {
+        if [ -n "$LAUNCHED_PID" ] && [ "$(/bin/ps -p "$LAUNCHED_PID" -o comm= 2>/dev/null)" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ]; then
+            /bin/kill "$LAUNCHED_PID" 2>/dev/null || true
+        fi
         cleanup_mount
         /bin/rm -rf "$STAGED_APP"
         restore_backup
@@ -167,6 +180,24 @@ enum UpdateSecurity {
         echo "[install] error: $*"
         rollback
         exit 1
+    }
+
+    trap cleanup_mount EXIT
+    trap 'fail "installation interrupted"' HUP INT TERM
+
+    confirm_new_process() {
+        [ -f "$CONFIRMATION" ] && [ ! -L "$CONFIRMATION" ] || return 1
+        local token version bundle_path pid executable
+        token=$(/usr/libexec/PlistBuddy -c "Print :token" "$CONFIRMATION" 2>/dev/null) || return 1
+        version=$(/usr/libexec/PlistBuddy -c "Print :version" "$CONFIRMATION" 2>/dev/null) || return 1
+        bundle_path=$(/usr/libexec/PlistBuddy -c "Print :bundlePath" "$CONFIRMATION" 2>/dev/null) || return 1
+        pid=$(/usr/libexec/PlistBuddy -c "Print :processID" "$CONFIRMATION" 2>/dev/null) || return 1
+        [ "$token" = "$LAUNCH_TOKEN" ] && [ "$version" = "$EXPECTED_VERSION" ] && [ "$bundle_path" = "$TARGET" ] || return 1
+        [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ "$pid" != "$PARENT_PID" ] || return 1
+        /bin/kill -0 "$pid" 2>/dev/null || return 1
+        executable=$(/bin/ps -p "$pid" -o comm= 2>/dev/null) || return 1
+        [ "$executable" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ] || return 1
+        LAUNCHED_PID="$pid"
     }
 
     verify_app() {
@@ -227,16 +258,22 @@ enum UpdateSecurity {
     fi
     /bin/mv "$STAGED_APP" "$TARGET" || fail "could not install staged app"
 
-    /usr/bin/open "$TARGET" || fail "could not request app launch"
+    /usr/bin/open -n "$TARGET" --args --update-confirmation "$CONFIRMATION" --update-token "$LAUNCH_TOKEN" --update-version "$EXPECTED_VERSION" || fail "could not request app launch"
     LAUNCHED=0
     for _ in $(/usr/bin/seq 1 100); do
-        if /usr/bin/pgrep -x "$EXECUTABLE_NAME" >/dev/null 2>&1; then
+        if confirm_new_process; then
             LAUNCHED=1
             break
         fi
         /bin/sleep 0.1
     done
     [ "$LAUNCHED" = "1" ] || fail "new app did not launch"
+
+    for _ in $(/usr/bin/seq 1 20); do
+        /bin/kill -0 "$LAUNCHED_PID" 2>/dev/null || fail "new app exited during startup"
+        [ "$(/bin/ps -p "$LAUNCHED_PID" -o comm= 2>/dev/null)" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ] || fail "new app process changed"
+        /bin/sleep 0.1
+    done
 
     /bin/rm -rf "$BACKUP_APP"
     cleanup_mount

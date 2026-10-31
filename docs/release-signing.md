@@ -1,6 +1,8 @@
 # Release Signing
 
-YouTubeJack release builds are Developer ID signed and notarized in GitHub Actions. Configure these repository secrets before pushing a release commit to `main`:
+YouTubeJack release builds are Developer ID signed and notarized in GitHub Actions. Push the verified release commit to `main`, then run the **Build & Release** workflow manually. It increments the patch version, builds with Xcode 27, runs Swift tests with the bundled runtime tools, validates signatures and notarization, and publishes the DMG with its update manifest.
+
+Configure these repository secrets before running the release workflow:
 
 - `MACOS_CERTIFICATE_P12_BASE64`
 - `MACOS_CERTIFICATE_PASSWORD`

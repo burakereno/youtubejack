@@ -39,6 +39,11 @@ struct MediaPreviewView: View {
         }
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
     }
 }
 
@@ -46,34 +51,33 @@ struct ThumbnailView: View {
     let url: URL?
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(.quaternary)
-
-            if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        Image(systemName: "play.rectangle")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                    case .empty:
-                        ProgressView()
-                            .controlSize(.small)
-                    @unknown default:
-                        EmptyView()
+        RoundedRectangle(cornerRadius: 6)
+            .fill(.quaternary)
+            .overlay {
+                if let url {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .failure:
+                            Image(systemName: "play.rectangle")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        case .empty:
+                            ProgressView()
+                                .controlSize(.small)
+                        @unknown default:
+                            EmptyView()
+                        }
                     }
+                } else {
+                    Image(systemName: "play.rectangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
                 }
-            } else {
-                Image(systemName: "play.rectangle")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
