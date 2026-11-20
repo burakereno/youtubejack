@@ -5,24 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$ROOT_DIR/Sources/YouTubeJack/Resources/bin"
 LICENSE_DIR="$ROOT_DIR/Sources/YouTubeJack/Resources/licenses"
 FORCE="${YOUTUBEJACK_FORCE_RUNTIME:-0}"
-TMP_DIRS=""
-
-cleanup() {
-  while IFS= read -r dir; do
-    [[ -n "$dir" ]] && rm -rf "$dir"
-  done <<< "$TMP_DIRS"
-  return 0
-}
-trap cleanup EXIT
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 
 mkdir -p "$BIN_DIR" "$LICENSE_DIR"
-
-make_tmp_dir() {
-  local tmp_dir
-  tmp_dir="$(mktemp -d)"
-  TMP_DIRS="${TMP_DIRS}${tmp_dir}"$'\n'
-  printf '%s\n' "$tmp_dir"
-}
 
 download() {
   local url="$1"
@@ -42,7 +28,8 @@ prepare_ytdlp() {
   fi
 
   local tmp_dir
-  tmp_dir="$(make_tmp_dir)"
+  tmp_dir="$WORK_DIR/ytdlp"
+  mkdir "$tmp_dir"
   local binary="$tmp_dir/yt-dlp_macos"
   local sums="$tmp_dir/SHA2-256SUMS"
 
@@ -88,7 +75,8 @@ prepare_ffmpeg() {
   esac
 
   local tmp_dir page urls zip_file checksum_file extract_dir
-  tmp_dir="$(make_tmp_dir)"
+  tmp_dir="$WORK_DIR/ffmpeg"
+  mkdir "$tmp_dir"
   page="$tmp_dir/ffmpeg.html"
   urls="$tmp_dir/urls.txt"
   zip_file="$tmp_dir/ffmpeg.zip"
@@ -156,8 +144,30 @@ PY
   chmod 0755 "$destination"
 }
 
+prepare_node() {
+  local version="22.23.5" arch checksum
+  case "$(uname -m)" in
+    arm64) arch=arm64; checksum=e7131995759b61a0170b646010d2ad35a5d37b4cb0d471f3e8317eac6f742f3d ;;
+    x86_64) arch=x64; checksum=c53383238206b9ae4db23c5d8a63645e2e753bec8ab51a49cc81939aa64e9422 ;;
+    *) echo "Unsupported Node.js architecture" >&2; exit 1 ;;
+  esac
+  if [[ "$FORCE" != "1" && -x "$BIN_DIR/node" && -f "$LICENSE_DIR/node-LICENSE" ]] &&
+     [[ "$("$BIN_DIR/node" --version)" == "v$version" ]] &&
+     [[ "$(lipo -archs "$BIN_DIR/node")" == "$(uname -m)" ]]; then
+    return
+  fi
+  local name="node-v$version-darwin-$arch"
+  local archive="$WORK_DIR/node.tar.gz"
+  download "https://nodejs.org/dist/v$version/$name.tar.gz" "$archive"
+  [[ "$(sha256_of "$archive")" == "$checksum" ]] || { echo "Node.js checksum mismatch" >&2; exit 1; }
+  tar -xzf "$archive" -C "$WORK_DIR" "$name/bin/node" "$name/LICENSE"
+  install -m 0755 "$WORK_DIR/$name/bin/node" "$BIN_DIR/node"
+  install -m 0644 "$WORK_DIR/$name/LICENSE" "$LICENSE_DIR/node-LICENSE"
+}
+
 prepare_ytdlp
 prepare_ffmpeg
+prepare_node
 
 cat >"$LICENSE_DIR/runtime-tools-notice.txt" <<'NOTICE'
 YouTubeJack bundles command-line runtime tools so users do not need Homebrew.
@@ -166,6 +176,10 @@ yt-dlp:
 - Source: https://github.com/yt-dlp/yt-dlp
 - Bundled from the official macOS release asset.
 - The app can install newer yt-dlp releases into Application Support/YouTubeJack/bin.
+
+Node.js:
+- Node.js runs the JavaScript required by yt-dlp. Its license is in node-LICENSE.
+- Source: https://nodejs.org/
 
 FFmpeg:
 - Source project: https://ffmpeg.org/

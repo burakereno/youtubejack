@@ -3,7 +3,7 @@ import Testing
 @testable import YouTubeJackCore
 
 struct AudioLanguageDownloadTests {
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_INFO_JSON"] != nil), arguments: ["tr", "en", "original"], DownloadContainer.allCases)
+    @Test(.serialized, .enabled(if: ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_INFO_JSON"] != nil), arguments: ["tr", "en", "original"], DownloadContainer.allCases)
     func realYTDLPSelectsExactLanguageFromLiveMetadata(code: String, container: DownloadContainer) async throws {
         let ytdlp = try #require(ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_YTDLP"])
         let metadata = try #require(ProcessInfo.processInfo.environment["YOUTUBEJACK_TEST_INFO_JSON"])

@@ -20,6 +20,12 @@ struct UpdateInstallerTests {
         #expect(try String(contentsOf: fixture.target.appendingPathComponent("marker")) == (mode == "valid" ? "new" : "old"))
         let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: fixture.target.appendingPathComponent("Contents/Info.plist")), format: nil) as? [String: String]
         #expect(info?["CFBundleShortVersionString"] == (mode == "valid" ? "1.1.0" : "1.0.0"))
+        if ["noack", "wrongtoken", "wrongversion"].contains(mode) {
+            let recorded = try String(contentsOf: fixture.root.appendingPathComponent("launched-pids"))
+            let pid = try #require(recorded.split(separator: "\n").first.flatMap { Int32($0) })
+            #expect(kill(pid, 0) == -1 && errno == ESRCH)
+            if let other = fixture.otherCopy { #expect(other.isRunning) }
+        }
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: fixture.root.path)
         #expect(leftovers.contains(where: { $0.hasPrefix(".AuditUpdate.previous.") || $0.hasPrefix(".AuditUpdate.update.") }) == false)
     }
@@ -77,6 +83,8 @@ private struct InstallerFixture {
         exit 0
         """)
         var script = UpdateSecurity.installerScript
+            .replacingOccurrences(of: "set -uo pipefail", with: "set -uo pipefail\nexport AUDIT_MODE=\(Self.quote(mode))")
+            .replacingOccurrences(of: "LAUNCHED_PID=$!", with: "LAUNCHED_PID=$!\necho $! >> \(Self.quote(root.appendingPathComponent("launched-pids").path))")
         // Only this temporary test copy substitutes trust/UI tools. Production has no bypass flag.
         for (original, replacement) in [("/usr/bin/codesign", codesign), ("/usr/sbin/spctl", spctl), ("/usr/bin/hdiutil", hdiutil), ("/usr/bin/open", open)] {
             script = script.replacingOccurrences(of: original, with: Self.quote(replacement.path))

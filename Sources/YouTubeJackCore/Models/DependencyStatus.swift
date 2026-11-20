@@ -16,7 +16,7 @@ public struct DependencyStatus: Equatable, Sendable {
     }
 
     public var isReady: Bool {
-        ytdlp != nil
+        ytdlp != nil && ffmpeg != nil && jsRuntimePath != nil
     }
 
     public var summary: String {
@@ -24,6 +24,7 @@ public struct DependencyStatus: Equatable, Sendable {
             if ffmpeg == nil {
                 return L10n.string("yt-dlp is ready (%@), ffmpeg is missing", defaultValue: "yt-dlp is ready (\(ytdlp.origin.title)), ffmpeg is missing")
             }
+            if jsRuntimePath == nil { return L10n.string("A JavaScript runtime is missing.") }
             return L10n.string("Tools ready: %@", defaultValue: "Tools ready: \(ytdlp.origin.title)")
         }
         return L10n.string("yt-dlp was not found")

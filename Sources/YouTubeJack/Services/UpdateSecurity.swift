@@ -168,6 +168,14 @@ enum UpdateSecurity {
     rollback() {
         if [ -n "$LAUNCHED_PID" ] && [ "$(/bin/ps -p "$LAUNCHED_PID" -o comm= 2>/dev/null)" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ]; then
             /bin/kill "$LAUNCHED_PID" 2>/dev/null || true
+            for _ in $(/usr/bin/seq 1 10); do
+                /bin/kill -0 "$LAUNCHED_PID" 2>/dev/null || break
+                /bin/sleep 0.1
+            done
+            if [ "$(/bin/ps -p "$LAUNCHED_PID" -o comm= 2>/dev/null)" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ]; then
+                /bin/kill -KILL "$LAUNCHED_PID" 2>/dev/null || true
+            fi
+            wait "$LAUNCHED_PID" 2>/dev/null || true
         fi
         cleanup_mount
         /bin/rm -rf "$STAGED_APP"
@@ -194,11 +202,10 @@ enum UpdateSecurity {
         bundle_path=$(/usr/libexec/PlistBuddy -c "Print :bundlePath" "$CONFIRMATION" 2>/dev/null) || return 1
         pid=$(/usr/libexec/PlistBuddy -c "Print :processID" "$CONFIRMATION" 2>/dev/null) || return 1
         [ "$token" = "$LAUNCH_TOKEN" ] && [ "$version" = "$EXPECTED_VERSION" ] && [ "$bundle_path" = "$TARGET" ] || return 1
-        [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ "$pid" != "$PARENT_PID" ] || return 1
+        [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ "$pid" = "$LAUNCHED_PID" ] || return 1
         /bin/kill -0 "$pid" 2>/dev/null || return 1
         executable=$(/bin/ps -p "$pid" -o comm= 2>/dev/null) || return 1
         [ "$executable" = "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" ] || return 1
-        LAUNCHED_PID="$pid"
     }
 
     verify_app() {
@@ -259,7 +266,8 @@ enum UpdateSecurity {
     fi
     /bin/mv "$STAGED_APP" "$TARGET" || fail "could not install staged app"
 
-    /usr/bin/open -n "$TARGET" --args --update-confirmation "$CONFIRMATION" --update-token "$LAUNCH_TOKEN" --update-version "$EXPECTED_VERSION" || fail "could not request app launch"
+    "$TARGET/Contents/MacOS/$EXECUTABLE_NAME" --update-confirmation "$CONFIRMATION" --update-token "$LAUNCH_TOKEN" --update-version "$EXPECTED_VERSION" </dev/null >/dev/null 2>&1 &
+    LAUNCHED_PID=$!
     LAUNCHED=0
     for _ in $(/usr/bin/seq 1 100); do
         if confirm_new_process; then

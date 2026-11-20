@@ -2,6 +2,20 @@ import XCTest
 @testable import YouTubeJackCore
 
 final class MediaFormatAvailabilityTests: XCTestCase {
+    func testCombinedAudioCannotBePairedWithAnotherVideoStream() {
+        let hd = MediaFormat(id: "137", ext: "mp4", height: 1080, vcodec: "avc1", acodec: "none")
+        let combined = MediaFormat(id: "18", ext: "mp4", height: 360, vcodec: "avc1", acodec: "aac", filesize: 6_000_000)
+        let audio = MediaFormat(id: "140", ext: "m4a", height: nil, vcodec: "none", acodec: "aac", filesize: 1_500_000)
+        let withoutAudioTrack = MediaFormatAvailability(isKnown: true, formats: [hd, combined])
+        XCTAssertFalse(withoutAudioTrack.isContainerAvailable(.mp4, for: .q1080))
+        XCTAssertTrue(withoutAudioTrack.isContainerAvailable(.mp4, for: .q480))
+        XCTAssertEqual(withoutAudioTrack.maxVideoHeight(codec: .automatic), 360)
+        XCTAssertEqual(withoutAudioTrack.estimatedDownloadSizeBytes(for: .audioM4A, container: .mp4), 6_000_000)
+        let withAudioTrack = MediaFormatAvailability(isKnown: true, formats: [hd, combined, audio])
+        XCTAssertEqual(withAudioTrack.maxVideoHeight(codec: .automatic), 1080)
+        XCTAssertEqual(withAudioTrack.estimatedDownloadSizeBytes(for: .audioM4A, container: .mp4), 1_500_000)
+    }
+
     func testEnablesOnlyExistingResolutionContainerPairs() {
         let availability = MediaFormatAvailability(
             isKnown: true,

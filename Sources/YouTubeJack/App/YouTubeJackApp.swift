@@ -64,7 +64,7 @@ struct YouTubeJackApp: App {
                 Divider()
 
                 Button(L10n.string("Clear Completed")) {
-                    model.clearFinished()
+                    model.clearCompleted()
                 }
                 .disabled(model.isAnyDrawerPresented)
             }

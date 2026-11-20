@@ -116,6 +116,8 @@ if [[ -d "$RESOURCES_DIR/bin" ]]; then
       # Re-signing the PyInstaller launcher cannot re-sign its compressed Python libraries.
       /usr/bin/codesign "${signing_common_args[@]}" \
         --entitlements "$ROOT_DIR/scripts/yt-dlp.entitlements.plist" "$executable" >/dev/null
+    elif [[ "$executable" == "$RESOURCES_DIR/bin/node" ]]; then
+      /usr/bin/codesign "${signing_common_args[@]}" --entitlements "$ROOT_DIR/scripts/node.entitlements.plist" "$executable" >/dev/null
     else
       /usr/bin/codesign "${signing_common_args[@]}" "$executable" >/dev/null
     fi
@@ -128,6 +130,7 @@ fi
 # A valid signature alone does not prove that the embedded Python can load.
 "$RESOURCES_DIR/bin/yt-dlp" --version
 "$RESOURCES_DIR/bin/ffmpeg" -version >/dev/null
+"$RESOURCES_DIR/bin/node" -e 'if (Array.from({length: 10000}, (_, i) => i * i)[10] !== 100) process.exit(1)'
 
 echo "Built $APP_DIR"
 echo "Signed with $CODESIGN_IDENTITY"

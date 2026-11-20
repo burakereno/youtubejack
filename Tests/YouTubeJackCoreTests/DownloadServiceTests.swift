@@ -123,6 +123,22 @@ final class DownloadServiceTests: XCTestCase {
         XCTAssertEqual(result.media.title, "Runtime fixture")
     }
 
+    func testBundledNodeTakesPrecedenceOverSystemDeno() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bundled = root.appendingPathComponent("bundled")
+        let system = root.appendingPathComponent("system")
+        for folder in [bundled, system] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        try writeExecutable("deno", in: system, script: "#!/bin/sh\nexit 0\n")
+        try writeExecutable("node", in: bundled, script: "#!/bin/sh\nexit 0\n")
+        let resolver = DependencyResolver(managedBinDirectory: root, bundledBinDirectory: bundled, systemSearchPaths: [system.path])
+        XCTAssertEqual(resolver.javaScriptRuntimeArguments(), [
+            "--no-js-runtimes", "--js-runtimes", "node:\(bundled.appendingPathComponent("node").path)"
+        ])
+    }
+
     func testSystemRuntimeLookupPreservesSearchPathOrder() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

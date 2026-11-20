@@ -291,11 +291,11 @@ private final class DownloadCancellationControl: @unchecked Sendable {
             self.process = process
             return cancelled
         }
-        if shouldTerminate, process?.isRunning == true { process?.terminate() }
+        if shouldTerminate, let process { ProcessRunner.stop(process) }
     }
 
     func cancel() {
         let process = lock.withLock { cancelled = true; return self.process }
-        if process?.isRunning == true { process?.terminate() }
+        if let process { ProcessRunner.stop(process) }
     }
 }

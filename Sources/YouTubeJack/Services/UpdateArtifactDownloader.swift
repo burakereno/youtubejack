@@ -59,7 +59,7 @@ enum UpdateArtifactDownloader {
               (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid() else { return false }
         let marker = directory.appendingPathComponent(".youtubejack-update-owner")
         guard (try? marker.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { return false }
-        return (try? String(contentsOf: marker)) == String(directory.lastPathComponent.dropFirst(prefix.count))
+        return (try? String(contentsOf: marker, encoding: .utf8)) == String(directory.lastPathComponent.dropFirst(prefix.count))
     }
 
     static func removeArtifact(at artifact: URL) {

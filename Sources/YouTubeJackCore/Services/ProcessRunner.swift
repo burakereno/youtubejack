@@ -45,8 +45,7 @@ public final class ProcessRunner: Sendable {
         maxCollectedOutputBytes: Int? = 1_048_576,
         collectOutput: Bool = true
     ) async throws -> ProcessResult {
-        let runningProcess = RunningProcess()
-        let process = runningProcess.process
+        let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
 
@@ -55,6 +54,7 @@ public final class ProcessRunner: Sendable {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        try Task.checkCancellation()
         try process.run()
         onProcessStarted?(process)
 
@@ -73,18 +73,16 @@ public final class ProcessRunner: Sendable {
         )
 
         let didFinish = await withTaskCancellationHandler {
-            await waitForTermination(runningProcess, timeout: timeout)
+            await waitForTermination(process, timeout: timeout)
         } onCancel: {
-            runningProcess.terminate()
+            Self.stop(process)
         }
 
-        if didFinish == false {
-            runningProcess.terminate()
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            runningProcess.forceTerminate()
-            let stdoutValue = await stdout
-            let stderrValue = await stderr
-            _ = ProcessResult(exitCode: process.terminationStatus, stdout: stdoutValue, stderr: stderrValue)
+        if !didFinish {
+            Self.stop(process)
+            _ = await waitForTermination(process, timeout: nil)
+            _ = await (stdout, stderr)
+            try Task.checkCancellation()
             throw ProcessTimeoutError(executable: executablePath, timeout: timeout ?? 0)
         }
 
@@ -109,22 +107,36 @@ public final class ProcessRunner: Sendable {
         return result
     }
 
-    private func waitForTermination(_ runningProcess: RunningProcess, timeout: TimeInterval?) async -> Bool {
+    static func stop(_ process: Process) {
+        guard process.isRunning else { return }
+        let pid = process.processIdentifier
+        let ownsGroup = getpgid(pid) == pid
+        process.terminate()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .milliseconds(300)) {
+            // yt-dlp can leave an ffmpeg child holding the output pipes while it exits.
+            if process.isRunning {
+                kill(ownsGroup ? -pid : pid, SIGKILL)
+            } else if ownsGroup, getpgid(pid) == -1 && errno == ESRCH {
+                // A group with live children keeps its group ID reserved.
+                kill(-pid, SIGKILL)
+            }
+        }
+    }
+
+    private func waitForTermination(_ process: Process, timeout: TimeInterval?) async -> Bool {
         await withCheckedContinuation { continuation in
             let box = ProcessWaitContinuation(continuation)
-            runningProcess.process.terminationHandler = { _ in
+            process.terminationHandler = { _ in
                 box.resume(true)
             }
 
             if let timeout {
-                Task.detached(priority: .utility) {
-                    let nanoseconds = UInt64(max(0, timeout) * 1_000_000_000)
-                    try? await Task.sleep(nanoseconds: nanoseconds)
-                    box.resume(false)
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + max(0, timeout)) { [weak box] in
+                    box?.resume(false)
                 }
             }
 
-            if runningProcess.process.isRunning == false {
+            if process.isRunning == false {
                 box.resume(true)
             }
         }
@@ -137,71 +149,59 @@ public final class ProcessRunner: Sendable {
         collectOutput: Bool,
         keepRecentOutput: Bool = false
     ) async -> String {
-        await Task.detached(priority: .utility) {
-            var collected = Data()
-            var buffer = Data()
-            let maxLineBufferBytes = 262_144
+        // Blocking pipe reads must not occupy Swift's cooperative executor.
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                var collected = Data()
+                var buffer = Data()
+                let maxLineBufferBytes = 262_144
 
-            while true {
-                let data = fileHandle.availableData
-                if data.isEmpty {
-                    break
-                }
+                while true {
+                    let data = fileHandle.availableData
+                    if data.isEmpty {
+                        break
+                    }
 
-                if collectOutput, maxCollectedOutputBytes == nil {
-                    collected.append(data)
-                } else if collectOutput, let maxCollectedOutputBytes, maxCollectedOutputBytes > 0 {
-                    if keepRecentOutput {
-                        // Failures usually appear at the end, after progress and warnings.
-                        collected.append(contentsOf: data.suffix(maxCollectedOutputBytes))
-                        if collected.count > maxCollectedOutputBytes {
-                            collected.removeFirst(collected.count - maxCollectedOutputBytes)
+                    if collectOutput, maxCollectedOutputBytes == nil {
+                        collected.append(data)
+                    } else if collectOutput, let maxCollectedOutputBytes, maxCollectedOutputBytes > 0 {
+                        if keepRecentOutput {
+                            // Failures usually appear at the end, after progress and warnings.
+                            collected.append(contentsOf: data.suffix(maxCollectedOutputBytes))
+                            if collected.count > maxCollectedOutputBytes {
+                                collected.removeFirst(collected.count - maxCollectedOutputBytes)
+                            }
+                        } else if collected.count < maxCollectedOutputBytes {
+                            let remaining = maxCollectedOutputBytes - collected.count
+                            collected.append(contentsOf: data.prefix(remaining))
                         }
-                    } else if collected.count < maxCollectedOutputBytes {
-                        let remaining = maxCollectedOutputBytes - collected.count
-                        collected.append(contentsOf: data.prefix(remaining))
+                    }
+                    guard onLine != nil else { continue }
+                    buffer.append(data)
+
+                    while let newline = buffer.firstIndex(of: 0x0A) {
+                        let line = String(decoding: buffer[..<newline], as: UTF8.self)
+                        onLine?(line.trimmingCharacters(in: .newlines))
+                        buffer.removeSubrange(buffer.startIndex...newline)
+                    }
+
+                    if buffer.count > maxLineBufferBytes {
+                        // Preserve up to three trailing bytes when a UTF-8 scalar is split across reads.
+                        var completeBytes = buffer.count
+                        for _ in 0..<3 {
+                            if String(data: buffer.prefix(completeBytes), encoding: .utf8) != nil { break }
+                            completeBytes -= 1
+                        }
+                        onLine?(String(decoding: buffer.prefix(completeBytes), as: UTF8.self).trimmingCharacters(in: .newlines))
+                        buffer.removeFirst(completeBytes)
                     }
                 }
-                buffer.append(data)
 
-                while let newline = buffer.firstIndex(of: 0x0A) {
-                    let line = String(decoding: buffer[..<newline], as: UTF8.self)
-                    onLine?(line.trimmingCharacters(in: .newlines))
-                    buffer.removeSubrange(buffer.startIndex...newline)
+                if buffer.isEmpty == false {
+                    onLine?(String(decoding: buffer, as: UTF8.self).trimmingCharacters(in: .newlines))
                 }
-
-                if buffer.count > maxLineBufferBytes {
-                    // Preserve up to three trailing bytes when a UTF-8 scalar is split across reads.
-                    var completeBytes = buffer.count
-                    for _ in 0..<3 {
-                        if String(data: buffer.prefix(completeBytes), encoding: .utf8) != nil { break }
-                        completeBytes -= 1
-                    }
-                    onLine?(String(decoding: buffer.prefix(completeBytes), as: UTF8.self).trimmingCharacters(in: .newlines))
-                    buffer.removeFirst(completeBytes)
-                }
+                continuation.resume(returning: String(decoding: collected, as: UTF8.self))
             }
-
-            if buffer.isEmpty == false {
-                onLine?(String(decoding: buffer, as: UTF8.self).trimmingCharacters(in: .newlines))
-            }
-            return String(decoding: collected, as: UTF8.self)
-        }.value
-    }
-}
-
-private final class RunningProcess: @unchecked Sendable {
-    let process = Process()
-
-    func terminate() {
-        if process.isRunning {
-            process.terminate()
-        }
-    }
-
-    func forceTerminate() {
-        if process.isRunning {
-            kill(process.processIdentifier, SIGKILL)
         }
     }
 }

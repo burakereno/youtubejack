@@ -14,7 +14,7 @@ struct AppModelSubtitleTests {
         let model = fixture.makeModel()
         #expect(model.subtitleOptions.includesAutomatic == false)
         #expect(model.subtitleOptions.isEnabled)
-        #expect(model.subtitleOptions.languageCodes == ["en"])
+        #expect(model.selectedSubtitleLanguageCodes == ["en"])
         #expect(model.subtitleOptions.delivery == .separateFile)
         #expect(model.subtitleOptions.format == .vtt)
         let migrated = fixture.makeModel()
@@ -41,7 +41,7 @@ struct AppModelSubtitleTests {
 
         model.includesAutomaticSubtitles = false
         #expect(model.selectableSubtitleLanguages.map(\.code) == ["en", "de"])
-        #expect(model.subtitleOptions.languageCodes == ["en"])
+        #expect(model.selectedSubtitleLanguageCodes == ["en"])
         #expect(model.canIncludeSubtitles)
         #expect(model.hasOnlyAutomaticSubtitles == false)
         #expect(model.subtitleLanguages.count == 3, "Keep raw availability so the opt-in remains discoverable")
@@ -53,21 +53,21 @@ struct AppModelSubtitleTests {
         let model = fixture.makeModel()
         model.media = media(languages: [SubtitleLanguage(code: "tr", hasManual: false, hasAutomatic: true)])
         model.subtitleOptions.isEnabled = true
-        model.reconcileSubtitleSelection()
+
         #expect(model.hasOnlyAutomaticSubtitles)
         #expect(model.selectableSubtitleLanguages.isEmpty)
-        #expect(model.subtitleOptions.languageCodes.isEmpty)
+        #expect(model.selectedSubtitleLanguageCodes.isEmpty)
         #expect(model.canIncludeSubtitles == false)
         #expect(model.queuedSubtitleOptions.isEnabled == false)
 
         model.includesAutomaticSubtitles = true
         #expect(model.includesSubtitles)
         #expect(model.selectableSubtitleLanguages.map(\.code) == ["tr"])
-        #expect(model.subtitleOptions.languageCodes == ["tr"])
+        #expect(model.selectedSubtitleLanguageCodes == ["tr"])
 
         model.includesAutomaticSubtitles = false
         #expect(model.selectableSubtitleLanguages.isEmpty)
-        #expect(model.subtitleOptions.languageCodes.isEmpty)
+        #expect(model.selectedSubtitleLanguageCodes.isEmpty)
         #expect(model.includesSubtitles == false)
     }
 
@@ -80,9 +80,24 @@ struct AppModelSubtitleTests {
 
         model.media = media(languages: [SubtitleLanguage(code: "tr", hasManual: false, hasAutomatic: true)], isKnown: false)
         model.subtitleOptions.languageCodes = ["en"]
-        model.reconcileSubtitleSelection()
+
         #expect(model.hasOnlyAutomaticSubtitles == false)
-        #expect(model.subtitleOptions.languageCodes == ["en"], "Unknown metadata must preserve the saved selection")
+        #expect(model.selectedSubtitleLanguageCodes == ["en"], "Unknown metadata must preserve the saved selection")
+    }
+
+    @Test func inspectingCaptionsPreservesPreferredLanguagesAcrossLaunches() throws {
+        let fixture = try SubtitlePreferencesFixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.makeModel()
+        model.subtitleOptions = SubtitleOptions(isEnabled: false, languageCodes: ["tr"])
+        model.media = media(languages: [SubtitleLanguage(code: "en", hasManual: true, hasAutomatic: false)])
+        model.updateSelectedQuality(.q720)
+        #expect(model.selectedSubtitleLanguageCodes == ["en"])
+        #expect(fixture.makeModel().subtitleOptions.languageCodes == ["tr"])
+        model.includesSubtitles = true
+        #expect(model.queuedSubtitleOptions.languageCodes == ["en"])
+        model.media = media(languages: [SubtitleLanguage(code: "tr", hasManual: true, hasAutomatic: false)])
+        #expect(model.queuedSubtitleOptions.languageCodes == ["tr"])
     }
 
     private func media(languages: [SubtitleLanguage], isKnown: Bool = true) -> MediaInfo {

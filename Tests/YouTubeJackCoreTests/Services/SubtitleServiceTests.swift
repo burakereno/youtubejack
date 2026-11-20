@@ -124,9 +124,10 @@ struct SubtitleServiceTests {
         let task = Task {
             try await fixture.download(options: SubtitleOptions(isEnabled: true, languageCodes: ["en"]))
         }
+        defer { task.cancel() }
         let marker = fixture.root.appendingPathComponent("subtitle-started")
-        for _ in 0..<200 {
-            if FileManager.default.fileExists(atPath: marker.path) { break }
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !FileManager.default.fileExists(atPath: marker.path), ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
         }
         try #require(FileManager.default.fileExists(atPath: marker.path))

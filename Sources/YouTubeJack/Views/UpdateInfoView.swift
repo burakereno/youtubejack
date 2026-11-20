@@ -36,11 +36,11 @@ struct UpdateInfoView: View {
 
                         Divider().padding(.leading, 28)
 
-                        DependencyRow(name: "ffmpeg", tool: model.dependencyStatus.ffmpeg, required: false)
+                        DependencyRow(name: "ffmpeg", tool: model.dependencyStatus.ffmpeg, required: true)
 
                         Divider().padding(.leading, 28)
 
-                        DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: false)
+                        DependencyPathRow(name: "Node/Deno", path: model.dependencyStatus.jsRuntimePath, required: true)
 
                         Button {
                             model.refreshDependencies()
@@ -59,7 +59,10 @@ struct UpdateInfoView: View {
         .task(id: isPresented) {
             guard isPresented else { return }
             model.refreshDependencies()
-            await UpdateChecker.shared.checkForUpdates(force: true)
+            let updater = UpdateChecker.shared
+            if updater.lastError == nil {
+                await updater.checkForUpdates(force: true)
+            }
             // Keep a running update or its failure visible when opened from
             // the toolbar. The manual check remains available in this panel.
             if model.shouldShowYTDLPToolbarUpdate == false {
@@ -235,15 +238,15 @@ private struct AppUpdateSection: View {
             UpdateActivityStatus(message: L10n.string("Checking for updates…"), isBusy: true)
         } else if updater.isDownloading {
             ProgressView(value: updater.downloadProgress)
+        } else if let error = updater.lastError {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .lineLimit(3)
         } else if updater.updateAvailable, let latest = updater.latestVersion {
             Text(L10n.string("New version available: %@", defaultValue: "New version available: \(latest)"))
                 .font(.caption)
                 .foregroundStyle(.orange)
-        } else if let error = updater.lastError {
-            Text(L10n.string("Update check failed: %@", defaultValue: "Update check failed: \(error)"))
-                .font(.caption)
-                .foregroundStyle(.red)
-                .lineLimit(3)
         } else if updater.isUpToDate && updater.lastCheckCompletedAt != nil {
             Text(L10n.string("YouTubeJack is up to date."))
                 .font(.caption)

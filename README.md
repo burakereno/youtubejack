@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <sub>macOS 14.0+ · bundled yt-dlp and ffmpeg · Developer ID signed and notarized</sub>
+  <sub>macOS 14.0+ · bundled yt-dlp, ffmpeg and Node.js · Developer ID signed and notarized</sub>
 </p>
 
 ## Features
@@ -34,8 +34,8 @@
 - **Dedicated playlist column** — playlists open a resizable middle column with clickable selection rows, a full-height list, pinned selection controls and a selected-video queue action; the window stays compact and single videos keep the two-column layout with the queue on the right
 - **Adaptive window height** — subtitle controls grow and shrink the window to fit the main content, keeping its width; scrolling remains available when the content exceeds the monitor's usable height
 - **Queue control** — start, pause, remove, retry, and drag-drop reorder downloads
-- **File cleanup** — cancelled and failed partial downloads are cleaned without touching unrelated files
-- **Bundled runtime tools** — ships with yt-dlp and ffmpeg, so users do not need Homebrew
+- **File cleanup** — Clear Completed removes finished jobs from the queue. Removing a failed job also removes its partial download.
+- **Bundled runtime tools** — ships with yt-dlp, ffmpeg and Node.js, so users do not need Homebrew
 - **yt-dlp updates** — app-managed yt-dlp updates keep the downloader current
 - **yt-dlp update notice** — silently checks at launch and every two hours; a green **Update yt-dlp** button appears beside the app update control when a newer yt-dlp version is available, shows update activity, and disappears after a successful installation
 - **One-click app updates** — checks GitHub releases, downloads the latest DMG, and installs it
@@ -100,7 +100,7 @@ For a local Developer ID signed DMG:
 1. `~/Library/Application Support/YouTubeJack/bin`
 2. `YouTubeJack.app/Contents/Resources/bin`
 
-The first location is used for app-managed yt-dlp updates.
+YouTubeJack stores yt-dlp updates in the first location. If neither folder contains a JavaScript runtime, it also checks for Deno or Node.js on the system.
 
 ## Tech Stack
 

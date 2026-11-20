@@ -30,7 +30,7 @@ jobs:
       - name: Validate Build Guard
         run: |
           python3 -m unittest discover -s Tests/BuildPipelineTests -v
-          bash -n script/macos_build.sh script/build_and_run.sh scripts/build-app.sh
+          for script in script/*.sh scripts/*.sh; do bash -n "$script"; done
 
       - name: Validate Signing Secrets
         env:
@@ -44,7 +44,6 @@ jobs:
           missing=0
           for name in \
             MACOS_CERTIFICATE_P12_BASE64 \
-            MACOS_CERTIFICATE_PASSWORD \
             KEYCHAIN_PASSWORD \
             APPLE_ID \
             APPLE_TEAM_ID \
@@ -149,6 +148,8 @@ jobs:
           fi
           test -x ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp"
           test -x ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
+          test -x ".build/YouTubeJack.app/Contents/Resources/bin/node"
+          test -s ".build/YouTubeJack.app/Contents/Resources/licenses/node-LICENSE"
           codesign --verify --strict --verbose=2 ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp"
           codesign --verify --strict --verbose=2 ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
           codesign --verify --deep --strict --verbose=2 ".build/YouTubeJack.app"
@@ -168,8 +169,10 @@ jobs:
           fi
           for nested in \
             ".build/YouTubeJack.app/Contents/Resources/bin/yt-dlp" \
-            ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg"
+            ".build/YouTubeJack.app/Contents/Resources/bin/ffmpeg" \
+            ".build/YouTubeJack.app/Contents/Resources/bin/node"
           do
+            codesign --verify --strict --verbose=2 "$nested"
             NESTED_DETAILS="$(codesign -dv --verbose=4 "$nested" 2>&1)"
             echo "$NESTED_DETAILS"
             if echo "$NESTED_DETAILS" | grep -q "Signature=adhoc"; then

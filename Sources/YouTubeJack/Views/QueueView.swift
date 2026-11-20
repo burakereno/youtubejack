@@ -292,7 +292,7 @@ private struct DownloadQueueRow: View {
                 .accessibilityLabel(L10n.string("Download speed %@", defaultValue: "Download speed \(item.speed)"))
         }
         if item.eta.isEmpty == false, item.eta != "Unknown", item.eta != "N/A" {
-            Label("Kalan \(item.eta)", systemImage: "clock")
+            Label(L10n.string("Time remaining: %@", defaultValue: "Time remaining: \(item.eta)"), systemImage: "clock")
                 .fixedSize(horizontal: true, vertical: false)
         }
     }

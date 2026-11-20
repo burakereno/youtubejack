@@ -224,3 +224,5 @@
 "Update yt-dlp" = "Update yt-dlp";
 "Updating yt-dlp…" = "Updating yt-dlp…";
 "Download and install yt-dlp %@" = "Download and install yt-dlp %@";
+"A JavaScript runtime is missing." = "A JavaScript runtime is missing.";
+"Time remaining: %@" = "Time remaining: %@";

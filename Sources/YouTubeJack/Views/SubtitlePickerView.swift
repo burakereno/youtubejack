@@ -44,7 +44,10 @@ struct SubtitlePickerView: View {
     }
 
     private var subtitleControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let codes = model.selectedSubtitleLanguageCodes
+        let selected = Set(codes)
+        let summary = codes.map { SubtitleLanguage.localizedName(for: $0) }.joined(separator: ", ")
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.string("Save as"))
@@ -62,10 +65,10 @@ struct SubtitlePickerView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.string("Languages"))
                         .font(.callout.weight(.semibold))
-                    MenuField(L10n.string("Subtitle languages"), value: model.subtitleOptions.languageCodes.isEmpty ? L10n.string("Choose language") : model.subtitleOptions.summary) {
+                    MenuField(L10n.string("Subtitle languages"), value: codes.isEmpty ? L10n.string("Choose language") : summary) {
                         ForEach(model.selectableSubtitleLanguages) { language in
                             Toggle(isOn: Binding(
-                                get: { model.subtitleOptions.languageCodes.contains(language.code) },
+                                get: { selected.contains(language.code) },
                                 set: { model.setSubtitleLanguage(language.code, selected: $0) }
                             )) {
                                 Text(languageTitle(language))
@@ -183,7 +186,7 @@ struct SubtitlePickerView: View {
         if model.subtitleAvailability.isKnown, model.subtitleLanguages.isEmpty {
             return L10n.string("No subtitles were found in this video. It will be downloaded without subtitles.")
         }
-        if model.subtitleOptions.languageCodes.isEmpty { return L10n.string("Select at least one subtitle language.") }
+        if model.selectedSubtitleLanguageCodes.isEmpty { return L10n.string("Select at least one subtitle language.") }
         return model.subtitleOptions.delivery == .embedded
             ? L10n.string("Subtitles are embedded in the video and can be turned on or off in your player. No separate file is created.")
             : L10n.string("Selected subtitles are saved alongside the video with their language code.")

@@ -98,17 +98,9 @@ public struct MediaFormatAvailability: Equatable, Sendable {
     }
 
     public func maxVideoHeight(codec: VideoCodecPreference, audioLanguage: AudioLanguageSelection = .original) -> Int? {
-        let resolved = audioLanguage.resolved(in: self)
-        return formats
-            .filter { format in
-                guard format.hasVideo, codec.matches(format.vcodec),
-                      let ext = format.ext, let container = DownloadContainer(rawValue: ext.lowercased())
-                else { return false }
-                return codec.allows(container) && hasAudio(container: container, language: audioLanguage)
-                    && (format.hasAudio == false || resolved.matches(format))
-            }
-            .compactMap(\.height)
-            .max()
+        DownloadContainer.allCases.filter(codec.allows).compactMap {
+            bestVideoFormat(container: $0, profile: .best, codec: codec, audioLanguage: audioLanguage)?.height
+        }.max()
     }
 
     public func isResolutionAvailable(_ profile: QualityProfile, codec: VideoCodecPreference = .automatic, audioLanguage: AudioLanguageSelection = .original) -> Bool {
@@ -136,7 +128,7 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         guard codec.allows(container) else { return false }
         guard isKnown else { return true }
 
-        return bestVideoFormat(container: container, profile: profile, codec: codec, audioLanguage: audioLanguage) != nil && hasAudio(container: container, language: audioLanguage)
+        return bestVideoFormat(container: container, profile: profile, codec: codec, audioLanguage: audioLanguage) != nil
     }
 
     public func preferredContainer(
@@ -191,54 +183,26 @@ public struct MediaFormatAvailability: Equatable, Sendable {
         return value <= upper
     }
 
-    private func hasAudio(container: DownloadContainer, language: AudioLanguageSelection) -> Bool {
-        bestAudioFormat(container: container, language: language) != nil
-    }
-
     private func bestVideoFormat(container: DownloadContainer, profile: QualityProfile, codec: VideoCodecPreference, audioLanguage: AudioLanguageSelection) -> MediaFormat? {
-        let resolved = audioLanguage.resolved(in: self)
-        return formats
-            .filter { format in
-                guard format.hasVideo, normalized(format.ext) == container.rawValue else { return false }
-                guard codec.matches(format.vcodec) else { return false }
-                // A combined stream carries its own audio; it cannot satisfy another language.
-                if format.hasAudio, resolved.matches(format) == false { return false }
-                if profile == .best {
-                    return true
-                }
-                return matchesResolutionBand(format.height, profile: profile)
-            }
-            .max { lhs, rhs in
-                isLowerRanked(lhs, than: rhs)
-            }
+        let language = audioLanguage.resolved(in: self)
+        let separateAudio = bestAudioFormat(container: container, language: language) != nil
+        return formats.lazy.filter { format in
+            guard format.hasVideo, self.normalized(format.ext) == container.rawValue, codec.matches(format.vcodec),
+                  profile == .best || self.matchesResolutionBand(format.height, profile: profile) else { return false }
+            return format.hasAudio ? language.matches(format) : separateAudio
+        }.max(by: isLowerRanked)
     }
 
     private func bestAudioFormat(container: DownloadContainer? = nil, language: AudioLanguageSelection = .original) -> MediaFormat? {
         let resolved = language.resolved(in: self)
-        return formats
-            .filter { format in
-                guard format.hasAudio else { return false }
-                guard resolved.matches(format) else { return false }
-                if let container {
-                    return isAudioFormat(format, compatibleWith: container)
-                }
-                return true
-            }
-            .max { lhs, rhs in
-                isLowerRanked(lhs, than: rhs)
-            }
-    }
-
-    private func isAudioFormat(_ format: MediaFormat, compatibleWith container: DownloadContainer) -> Bool {
-        let ext = normalized(format.ext)
-        let acodec = normalized(format.acodec)
-
-        switch container {
-        case .mp4:
-            return ext == "m4a" || ext == "mp4" || acodec.hasPrefix("mp4a") || acodec.hasPrefix("aac")
-        case .webm:
-            return ext == "webm" || acodec.hasPrefix("opus") || acodec.hasPrefix("vorbis")
-        }
+        let audioExtension = container.map { $0 == .mp4 ? "m4a" : "webm" }
+        let eligible = formats.lazy.filter { $0.hasAudio && resolved.matches($0) }
+        let separate = eligible.filter { format in
+            format.vcodec == "none" && (audioExtension == nil || self.normalized(format.ext) == audioExtension)
+        }.max(by: isLowerRanked)
+        if separate != nil || container != nil { return separate }
+        // The audio-only selector falls back to a combined stream when there is no separate track.
+        return eligible.filter(\.hasVideo).max(by: isLowerRanked)
     }
 
     private func isLowerRanked(_ lhs: MediaFormat, than rhs: MediaFormat) -> Bool {

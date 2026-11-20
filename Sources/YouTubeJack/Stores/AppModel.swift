@@ -9,7 +9,7 @@ final class AppModel: ObservableObject {
 
     @Published var inputURL = "" {
         didSet {
-            guard inputURL != oldValue else { return }
+            guard parser.parse(inputURL)?.normalizedURL != parser.parse(oldValue)?.normalizedURL else { return }
             invalidateAnalysis()
             if parser.parse(inputURL)?.normalizedURL != lastAnalyzedURL { clearLoadedMedia() }
         }
@@ -121,7 +121,7 @@ final class AppModel: ObservableObject {
     var canAddToQueue: Bool {
         guard isPreparingAppUpdate == false, isAnyDrawerPresented == false else { return false }
         guard media != nil, isAnalyzing == false, isAnalyzingFormats == false else { return false }
-        if canIncludeSubtitles, subtitleOptions.isEnabled, subtitleOptions.languageCodes.isEmpty { return false }
+        if subtitleOptions.isEnabled, canIncludeSubtitles, selectedSubtitleLanguageCodes.isEmpty { return false }
         if media?.kind == .video, media?.formatAvailability.isKnown == false {
             return false
         }
@@ -322,34 +322,31 @@ final class AppModel: ObservableObject {
 
     var includesAutomaticSubtitles: Bool {
         get { subtitleOptions.includesAutomatic }
-        set {
-            subtitleOptions.includesAutomatic = newValue
-            reconcileSubtitleSelection()
-        }
+        set { subtitleOptions.includesAutomatic = newValue }
     }
 
     var queuedSubtitleOptions: SubtitleOptions {
-        guard canIncludeSubtitles else { return SubtitleOptions() }
-        return subtitleOptions
+        guard subtitleOptions.isEnabled, canIncludeSubtitles else { return SubtitleOptions() }
+        var options = subtitleOptions
+        options.languageCodes = selectedSubtitleLanguageCodes
+        return options
     }
 
     func setSubtitleLanguage(_ code: String, selected: Bool) {
-        var codes = Set(subtitleOptions.languageCodes)
+        var codes = Set(selectedSubtitleLanguageCodes)
         if selected { codes.insert(code) } else { codes.remove(code) }
         subtitleOptions.languageCodes = codes.sorted()
     }
 
-    func reconcileSubtitleSelection() {
+    var selectedSubtitleLanguageCodes: [String] {
+        let preferred = subtitleOptions.languageCodes
+        guard !preferred.isEmpty else { return [] }
         let availability = subtitleAvailability
-        guard availability.isKnown else { return }
-        let eligible = selectableSubtitleLanguages
-        guard eligible.isEmpty == false else {
-            subtitleOptions.languageCodes = []
-            return
-        }
-        let availableCodes = Set(eligible.map(\.code))
-        let selected = subtitleOptions.languageCodes.filter { availableCodes.contains($0) }
-        subtitleOptions.languageCodes = selected.isEmpty ? [eligible[0].code] : selected
+        guard availability.isKnown else { return preferred }
+        let eligible = availability.languages.filter { $0.hasManual || subtitleOptions.includesAutomatic && $0.hasAutomatic }
+        let codes = Set(eligible.map(\.code))
+        let selected = preferred.filter(codes.contains)
+        return selected.isEmpty ? eligible.prefix(1).map(\.code) : selected
     }
 
     func updateSelectedContainer(_ container: DownloadContainer) {
@@ -549,6 +546,7 @@ final class AppModel: ObservableObject {
     }
 
     func scheduleAnalyzeForCurrentURL() {
+        guard !isAnalyzing else { return }
         analyzeTask?.cancel()
         let trimmedURL = inputURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -712,6 +710,13 @@ final class AppModel: ObservableObject {
         }
         guard canAddToQueue else { return }
 
+        let subtitles = queuedSubtitleOptions
+        var queuedLanguages: [String: Set<AudioLanguageSelection>] = [:]
+        for item in queue where item.quality == selectedQuality && item.container == selectedContainer &&
+            item.videoCodecPreference == selectedVideoCodec && item.subtitles == subtitles &&
+            item.status != .failed && item.status != .cancelled {
+            queuedLanguages[item.url, default: []].insert(item.audioLanguage)
+        }
         let newItems: [DownloadItem]
         if media.kind == .playlist {
             let selectedEntries = playlistEntries.filter(\.isSelected)
@@ -729,44 +734,44 @@ final class AppModel: ObservableObject {
             }
             newItems = validSelectedEntries
                 .filter { candidate in
-                    queue.contains(where: { $0.url == candidate.normalizedURL && $0.quality == selectedQuality && $0.container == selectedContainer && $0.videoCodecPreference == selectedVideoCodec && $0.subtitles == queuedSubtitleOptions && $0.audioLanguage == candidate.audioLanguage && $0.status != .failed && $0.status != .cancelled }) == false
+                    queuedLanguages[candidate.normalizedURL, default: []].insert(candidate.audioLanguage).inserted
                 }
                 .map { candidate in
-	                    DownloadItem(
-	                        url: candidate.normalizedURL,
-	                        title: candidate.entry.title,
-	                        quality: selectedQuality,
-	                        container: selectedContainer,
-	                        videoCodecPreference: selectedVideoCodec,
-	                        audioLanguage: candidate.audioLanguage,
-	                        subtitles: queuedSubtitleOptions,
-	                        thumbnailURL: candidate.entry.thumbnailURL,
-	                        playlistIndex: candidate.entry.index
-	                    )
-	                }
-	        } else {
+                    DownloadItem(
+                        url: candidate.normalizedURL,
+                        title: candidate.entry.title,
+                        quality: selectedQuality,
+                        container: selectedContainer,
+                        videoCodecPreference: selectedVideoCodec,
+                        audioLanguage: candidate.audioLanguage,
+                        subtitles: subtitles,
+                        thumbnailURL: candidate.entry.thumbnailURL,
+                        playlistIndex: candidate.entry.index
+                    )
+                }
+        } else {
             guard let parsedMediaURL = parser.parse(media.webpageURL) else {
                 statusMessage = AppError.invalidYouTubeURL.localizedDescription
                 return
             }
-            guard queue.contains(where: { $0.url == parsedMediaURL.normalizedURL && $0.quality == selectedQuality && $0.container == selectedContainer && $0.videoCodecPreference == selectedVideoCodec && $0.subtitles == queuedSubtitleOptions && $0.audioLanguage == queuedAudioLanguage && $0.status != .failed && $0.status != .cancelled }) == false else {
+            guard queuedLanguages[parsedMediaURL.normalizedURL]?.contains(queuedAudioLanguage) != true else {
                 statusMessage = L10n.string("This video is already queued with the same quality, format, audio, and subtitle options.")
                 return
             }
             newItems = [
                 DownloadItem(
-	                    url: parsedMediaURL.normalizedURL,
-	                    title: media.title,
-	                    quality: selectedQuality,
-	                    container: selectedContainer,
-	                    videoCodecPreference: selectedVideoCodec,
-	                    audioLanguage: queuedAudioLanguage,
-	                    subtitles: queuedSubtitleOptions,
-	                    thumbnailURL: media.thumbnailURL,
-	                    estimatedSizeBytes: estimatedSizeBytes(for: media)
-	                )
-	            ]
-	        }
+                    url: parsedMediaURL.normalizedURL,
+                    title: media.title,
+                    quality: selectedQuality,
+                    container: selectedContainer,
+                    videoCodecPreference: selectedVideoCodec,
+                    audioLanguage: queuedAudioLanguage,
+                    subtitles: subtitles,
+                    thumbnailURL: media.thumbnailURL,
+                    estimatedSizeBytes: estimatedSizeBytes(for: media)
+                )
+            ]
+        }
 
         guard newItems.isEmpty == false else {
             statusMessage = L10n.string("The selected videos are already queued.")
@@ -819,11 +824,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func clearFinished() {
-        queue
-            .filter { $0.status == .failed || $0.status == .cancelled }
-            .forEach { cleanupFiles(for: $0) }
-        queue.removeAll { [.completed, .failed, .cancelled].contains($0.status) }
+    func clearCompleted() {
+        queue.removeAll { $0.status == .completed }
     }
 
     func clearQueue() {
@@ -945,7 +947,8 @@ final class AppModel: ObservableObject {
             queue[index].errorMessage = nil
             queue[index].subtitleMessage = nil
 
-            let outputDirectoryURL = currentDownloadDirectoryURL()
+            let outputDirectoryURL = queue[index].destinationDirectoryURL ?? currentDownloadDirectoryURL()
+            queue[index].destinationDirectoryURL = outputDirectoryURL
             queue[index].temporaryDirectoryPath = DownloadWorkspace(outputDirectory: outputDirectoryURL.path, itemID: queue[index].id).directory.path
             let item = queue[index]
             let isAccessingSecurityScopedResource = outputDirectoryURL.startAccessingSecurityScopedResource()
@@ -1117,7 +1120,6 @@ final class AppModel: ObservableObject {
 
     private func reconcileSelectionWithAvailability() {
         guard let media else { return }
-        reconcileSubtitleSelection()
 
         if media.kind == .playlist {
             let availability = playlistAvailability

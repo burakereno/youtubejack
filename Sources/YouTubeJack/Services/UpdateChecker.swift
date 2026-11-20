@@ -44,7 +44,9 @@ final class UpdateChecker: ObservableObject {
     @Published private(set) var isDownloading = false
     @Published private(set) var isInstalling = false
     @Published private(set) var downloadProgress: Double = 0
-    @Published private(set) var lastError: String?
+    @Published private var checkError: String?
+    @Published private var installationError: String?
+    var lastError: String? { installationError ?? checkError }
     @Published private(set) var lastCheckedAt: Date?
     @Published private(set) var lastCheckCompletedAt: Date?
 
@@ -138,7 +140,7 @@ final class UpdateChecker: ObservableObject {
     }
 
     private func checkForUpdates(force: Bool, reportsErrors: Bool) async {
-        guard !isChecking else { return }
+        guard !isChecking, !isDownloading, !isInstalling else { return }
 
         let checkStartedAt = now()
         if !force,
@@ -152,7 +154,8 @@ final class UpdateChecker: ObservableObject {
         isChecking = true
         logger.info("Update check started: \(reportsErrors ? "manual" : "automatic", privacy: .public).")
         if reportsErrors {
-            lastError = nil
+            installationError = nil
+            checkError = nil
         }
 
         do {
@@ -160,11 +163,11 @@ final class UpdateChecker: ObservableObject {
             latestVersion = releaseInfo.version
             downloadURL = releaseInfo.downloadURL
             manifestURL = releaseInfo.manifestURL
-            lastError = nil
+            checkError = nil
             logger.info("Update check succeeded; current: \(self.currentVersion, privacy: .public), latest: \(releaseInfo.version, privacy: .public).")
         } catch {
             if reportsErrors {
-                lastError = error.localizedDescription
+                checkError = error.localizedDescription
             }
             logger.notice("Update check failed: \(reportsErrors ? "manual" : "automatic", privacy: .public).")
         }
@@ -184,7 +187,7 @@ final class UpdateChecker: ObservableObject {
     }
 
     func reportInstallationBlocked() {
-        lastError = Self.unfinishedQueueMessage
+        installationError = Self.unfinishedQueueMessage
     }
 
     @discardableResult
@@ -193,19 +196,20 @@ final class UpdateChecker: ObservableObject {
         onPreparationChanged: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never>? {
         guard isProductionBuild else {
-            lastError = L10n.string("Updates are disabled for local builds.")
+            installationError = L10n.string("Updates are disabled for local builds.")
             return nil
         }
         guard isDownloading == false, isInstalling == false else { return nil }
         guard canInstall() else { reportInstallationBlocked(); return nil }
         guard updateAvailable, let downloadURL, let manifestURL, let latestVersion else {
-            lastError = L10n.string("Update download is unavailable.")
+            installationError = L10n.string("Update download is unavailable.")
             return nil
         }
 
         isDownloading = true
         downloadProgress = 0
-        lastError = nil
+        installationError = nil
+        checkError = nil
         onPreparationChanged(true)
         let reportProgress: @Sendable (Double) -> Void = { [weak self] progress in
             Task { @MainActor [weak self] in
@@ -243,7 +247,7 @@ final class UpdateChecker: ObservableObject {
                 }
             } catch {
                 if let artifact { UpdateArtifactDownloader.removeArtifact(at: artifact) }
-                self.lastError = error.localizedDescription
+                self.installationError = error.localizedDescription
             }
         }
         installationTask = operation

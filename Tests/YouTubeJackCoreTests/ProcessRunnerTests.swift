@@ -58,6 +58,24 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertEqual(result.stdout, output)
     }
 
+    func testCancellationEscalatesForAProcessIgnoringTermination() async throws {
+        let ready = expectation(description: "Process installed its TERM handler")
+        let task = Task {
+            try await ProcessRunner().run(executablePath: "/bin/sh",
+                arguments: ["-c", "trap '' TERM; echo ready; exec /bin/sleep 8"],
+                onStdoutLine: { if $0 == "ready" { ready.fulfill() } }, timeout: 10)
+        }
+        await fulfillment(of: [ready], timeout: 3)
+        let start = ContinuousClock.now
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+            XCTAssertLessThan(start.duration(to: .now), .seconds(2))
+        }
+    }
+
     func testTimeoutTerminatesLongRunningProcess() async {
         let startedAt = Date()
         do {

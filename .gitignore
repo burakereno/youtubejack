@@ -9,3 +9,5 @@ __pycache__/
 *.xcuserstate
 Sources/YouTubeJack/Resources/bin/yt-dlp
 Sources/YouTubeJack/Resources/bin/ffmpeg
+Sources/YouTubeJack/Resources/bin/node
+Sources/YouTubeJack/Resources/licenses/node-LICENSE

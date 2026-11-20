@@ -69,11 +69,11 @@ fi
 printf "Developer ID Application found: %s\n" "$IDENTITY"
 
 printf "Writing GitHub Secrets...\n"
-base64 -i "$P12_PATH" | gh secret set MACOS_CERTIFICATE_P12_BASE64 --repo "$REPO" --body-file - >/dev/null
-printf "%s" "$P12_PASSWORD" | gh secret set MACOS_CERTIFICATE_PASSWORD --repo "$REPO" --body-file - >/dev/null
-printf "%s" "$KEYCHAIN_PASSWORD" | gh secret set KEYCHAIN_PASSWORD --repo "$REPO" --body-file - >/dev/null
-printf "%s" "$APPLE_ID" | gh secret set APPLE_ID --repo "$REPO" --body-file - >/dev/null
-printf "%s" "$TEAM_ID" | gh secret set APPLE_TEAM_ID --repo "$REPO" --body-file - >/dev/null
-printf "%s" "$APPLE_APP_SPECIFIC_PASSWORD" | gh secret set APPLE_APP_SPECIFIC_PASSWORD --repo "$REPO" --body-file - >/dev/null
+base64 -i "$P12_PATH" | gh secret set MACOS_CERTIFICATE_P12_BASE64 --repo "$REPO" >/dev/null
+printf "%s" "$P12_PASSWORD" | gh secret set MACOS_CERTIFICATE_PASSWORD --repo "$REPO" >/dev/null
+printf "%s" "$KEYCHAIN_PASSWORD" | gh secret set KEYCHAIN_PASSWORD --repo "$REPO" >/dev/null
+printf "%s" "$APPLE_ID" | gh secret set APPLE_ID --repo "$REPO" >/dev/null
+printf "%s" "$TEAM_ID" | gh secret set APPLE_TEAM_ID --repo "$REPO" >/dev/null
+printf "%s" "$APPLE_APP_SPECIFIC_PASSWORD" | gh secret set APPLE_APP_SPECIFIC_PASSWORD --repo "$REPO" >/dev/null
 
 printf "Done. Release signing and notarization secrets are configured for %s.\n" "$REPO"

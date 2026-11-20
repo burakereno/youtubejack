@@ -51,7 +51,7 @@ struct AppModelPlaylistTests {
 
         #expect(model.audioLanguages.map(\.code) == ["en"])
         #expect(model.subtitleLanguages.map(\.code) == ["en"])
-        #expect(model.subtitleOptions.languageCodes == ["en"])
+        #expect(model.selectedSubtitleLanguageCodes == ["en"])
         #expect(model.isQualityAvailable(.q2160))
         model.updateSelectedAudioLanguage(AudioLanguageSelection(languageCode: "en"))
         model.updateSelectedQuality(.q2160)
@@ -143,10 +143,10 @@ struct AppModelPlaylistTests {
         #expect(model.subtitleLanguages.first?.hasManual == false)
         #expect(model.subtitleLanguages.first?.hasAutomatic == true)
         model.subtitleOptions.includesAutomatic = true
-        model.reconcileSubtitleSelection()
+
         #expect(model.canIncludeSubtitles)
         #expect(model.includesSubtitles)
-        #expect(model.subtitleOptions.languageCodes == ["tr"])
+        #expect(model.selectedSubtitleLanguageCodes == ["tr"])
         model.addSelectedToQueue()
         #expect(model.queue.first?.subtitles.includesAutomatic == true)
         #expect(model.queue.first?.subtitles.languageCodes == ["tr"])
@@ -165,6 +165,27 @@ struct AppModelPlaylistTests {
         #expect(fixture.model.isQualityAvailable(.q1080) == false)
         #expect(fixture.model.isContainerAvailable(.mp4, for: .q1080) == false)
         #expect(fixture.model.isQualityAvailable(.audioM4A))
+    }
+
+    @Test func repeatedPlaylistEntryAddsOnlyOneDownloadPerVideo() async throws {
+        let fixture = try PlaylistFixture(videos: [video("AAAAAAAAAAA"), video("BBBBBBBBBBB"), video("AAAAAAAAAAA")])
+        defer { fixture.cleanUp() }
+        await fixture.model.analyzeCurrentURL()
+        try await fixture.finishAnalysis()
+        fixture.model.addSelectedToQueue()
+        #expect(fixture.model.queue.map(\.title) == ["AAAAAAAAAAA", "BBBBBBBBBBB"])
+    }
+
+    @Test func equivalentURLEditKeepsPlaylistAnalysisRunning() async throws {
+        let fixture = try PlaylistFixture(videos: [video("AAAAAAAAAAA"), video("BBBBBBBBBBB")])
+        defer { fixture.cleanUp() }
+        await fixture.model.analyzeCurrentURL()
+        fixture.model.inputURL += " "
+        fixture.model.scheduleAnalyzeForCurrentURL()
+        #expect(fixture.model.isAnalyzingFormats)
+        try await fixture.finishAnalysis()
+        #expect(fixture.model.playlistAvailability.checkedCount == 2)
+        #expect(fixture.model.playlistAvailability.pendingCount == 0)
     }
 
     private func video(_ id: String, height: Int = 1080, dub: String? = nil, captions: [String] = [], automaticCaptions: [String] = []) -> [String: Any] {

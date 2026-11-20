@@ -58,6 +58,8 @@ struct DestinationPickerView: View {
                 relativeTo: nil
             ) {
                 UserDefaults.standard.set(bookmark, forKey: AppPreferenceKeys.downloadDirectoryBookmark)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AppPreferenceKeys.downloadDirectoryBookmark)
             }
         }
     }

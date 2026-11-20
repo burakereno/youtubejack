@@ -167,7 +167,6 @@ hdiutil attach "$RW_DMG" \
 MOUNTED=1
 
 /usr/bin/SetFile -a V "$MOUNT_DIR/.background" >/dev/null 2>&1 || true
-/usr/bin/SetFile -a V "$MOUNT_DIR/Applications" >/dev/null 2>&1 || true
 
 osascript <<APPLESCRIPT
 tell application "Finder"

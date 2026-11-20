@@ -43,6 +43,7 @@ public struct DownloadItem: Identifiable, Equatable, Sendable {
     public var eta: String
     public var outputPath: String?
     public var outputPaths: [String]
+    public var destinationDirectoryURL: URL?
     public var temporaryDirectoryPath: String?
     public var fileSizeBytes: Int64?
     public var errorMessage: String?

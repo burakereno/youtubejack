@@ -97,10 +97,16 @@ struct AppModelRegressionTests {
             try await waitUntil { model.isQueueProcessing == false }
             #expect(model.queue.first?.status == .pending)
         }
+        let nextFolder = fixture.root.appendingPathComponent("new destination")
+        fixture.defaults.set(nextFolder.path, forKey: AppPreferenceKeys.downloadDirectory)
         model.resumeQueue()
         try await waitUntil { model.queue.first?.status == .completed || model.queue.first?.status == .failed }
         try await waitUntil { model.isQueueProcessing == false }
         #expect(model.queue.first?.status == .completed)
+        #expect(model.queue.first?.destinationDirectoryURL?.path == fixture.root.path)
+        #expect(!FileManager.default.fileExists(atPath: nextFolder.path))
+        let originalWorkspace = DownloadWorkspace(outputDirectory: fixture.root.path, itemID: try #require(model.queue.first?.id))
+        #expect(!FileManager.default.fileExists(atPath: originalWorkspace.directory.path))
         #expect(model.queue.first?.errorMessage == nil)
     }
 
@@ -185,7 +191,7 @@ struct AppModelRegressionTests {
         #expect(model.queue.map(\.id) == [first.id, second.id, running.id])
     }
 
-    @Test func clearingFailedJobsPreservesFinishedFilesAndRemovesOnlyOwnedPartials() throws {
+    @Test func clearingCompletedPreservesFailedJobsUntilExplicitRemoval() throws {
         let fixture = try RegressionFixture()
         defer { fixture.clean() }
         let model = fixture.model()
@@ -197,7 +203,12 @@ struct AppModelRegressionTests {
         try Data("partial".utf8).write(to: workspace.directory.appendingPathComponent("partial.mp4.part"))
         item.temporaryDirectoryPath = workspace.directory.path
         model.queue = [item]
-        model.clearFinished()
+        let completed = DownloadItem(url: fixture.url, title: "Done", quality: .q1080, container: .mp4, status: .completed)
+        model.queue.append(completed)
+        model.clearCompleted()
+        #expect(model.queue.map(\.id) == [item.id])
+        #expect(FileManager.default.fileExists(atPath: workspace.directory.path))
+        model.removeFromQueue(item)
         #expect(model.queue.isEmpty)
         #expect(try String(contentsOf: final) == "finished user file")
         #expect(FileManager.default.fileExists(atPath: workspace.directory.path) == false)

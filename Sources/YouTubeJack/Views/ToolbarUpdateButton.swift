@@ -7,9 +7,8 @@ struct ToolbarUpdateButton: View {
 
     var body: some View {
         Button {
-            if updater.isPreviewingUpdate {
-                model.presentUpdatePanel()
-            } else {
+            model.presentUpdatePanel()
+            if !updater.isPreviewingUpdate {
                 model.installAppUpdate(using: updater)
             }
         } label: {

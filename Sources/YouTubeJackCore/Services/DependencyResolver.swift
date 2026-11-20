@@ -45,7 +45,12 @@ public final class DependencyResolver: Sendable {
 
     private func javaScriptRuntime() -> (name: String, path: String)? {
         for name in ["deno", "node"] {
-            if let path = findTool(named: name)?.path ?? findExecutable(named: name) {
+            if let path = findTool(named: name)?.path {
+                return (name, path)
+            }
+        }
+        for name in ["deno", "node"] {
+            if let path = findExecutable(named: name) {
                 return (name, path)
             }
         }

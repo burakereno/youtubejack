@@ -5,6 +5,10 @@ yt-dlp:
 - Bundled from the official macOS release asset.
 - The app can install newer yt-dlp releases into Application Support/YouTubeJack/bin.
 
+Node.js:
+- Node.js runs the JavaScript required by yt-dlp. Its license is in node-LICENSE.
+- Source: https://nodejs.org/
+
 FFmpeg:
 - Source project: https://ffmpeg.org/
 - macOS binary build provider used by the development packaging script:

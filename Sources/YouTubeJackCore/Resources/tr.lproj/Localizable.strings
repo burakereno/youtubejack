@@ -224,3 +224,5 @@
 "Update yt-dlp" = "yt-dlp’yi güncelle";
 "Updating yt-dlp…" = "yt-dlp güncelleniyor…";
 "Download and install yt-dlp %@" = "yt-dlp %@ sürümünü indir ve kur";
+"A JavaScript runtime is missing." = "JavaScript çalıştırmak için Node.js veya Deno gerekiyor.";
+"Time remaining: %@" = "Kalan süre: %@";

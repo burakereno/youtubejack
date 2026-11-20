@@ -84,6 +84,27 @@ struct UpdateCheckerTests {
         #expect(checker.shouldShowToolbarUpdate)
     }
 
+    @Test
+    func automaticRecheckPreservesFailedDownloadMessageUntilUserRetries() async throws {
+        let fixture = try UpdateBundleFixture(production: true)
+        let clock = UpdateTestClock()
+        let source = ReleaseSourceStub(result: .success(try release()))
+        let scheduler = UpdateTimerStub()
+        let checker = UpdateChecker(bundle: fixture.bundle, now: { clock.date }, fetchReleaseInfo: source.fetch,
+                                    timerFactory: scheduler.schedule, downloadArtifact: { _, _ in throw URLError(.cannotWriteToFile) })
+        defer { checker.stop(); fixture.cleanUp() }
+
+        await checker.start()
+        let download = try #require(checker.downloadAndInstall(canInstall: { true }))
+        await download.value
+        let message = try #require(checker.lastError)
+        clock.date.addTimeInterval(7200)
+        await scheduler.fire()
+        #expect(checker.lastError == message)
+        await checker.checkForUpdates(force: true)
+        #expect(checker.lastError == nil)
+    }
+
     @Test(arguments: [false, true])
     func realToolbarUpdatesRespectTheProductionBuild(production: Bool) async throws {
         let fixture = try UpdateBundleFixture(production: production)

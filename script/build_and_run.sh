@@ -19,9 +19,14 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
-if [[ "$MODE" != "--build-only" && "$MODE" != "build-only" ]]; then
-  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-fi
+local_app_pids() {
+  local pid
+  while IFS= read -r pid; do
+    if [[ "$(/bin/ps -p "$pid" -o comm=)" == "$APP_BINARY" ]]; then
+      echo "$pid"
+    fi
+  done < <(/usr/bin/pgrep -x "$APP_NAME" || true)
+}
 
 cd "$ROOT_DIR"
 
@@ -33,6 +38,12 @@ source "$ROOT_DIR/script/macos_build.sh"
 MIN_SYSTEM_VERSION="$YOUTUBEJACK_MACOS_MINIMUM"
 youtubejack_build_macos debug
 BUILD_BINARY="$YOUTUBEJACK_MACOS_BINARY"
+
+if [[ "$MODE" != "--build-only" && "$MODE" != "build-only" ]]; then
+  while IFS= read -r pid; do
+    /bin/kill -TERM "$pid" 2>/dev/null || true
+  done < <(local_app_pids)
+fi
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
@@ -116,12 +127,12 @@ case "$MODE" in
   --verify|verify)
     open_app
     sleep 1
-    pgrep -x "$APP_NAME" >/dev/null
+    [[ -n "$(local_app_pids)" ]]
     ;;
   --preview-update)
     /usr/bin/open -n "$APP_BUNDLE" --args --preview-update
     sleep 1
-    pgrep -x "$APP_NAME" >/dev/null
+    [[ -n "$(local_app_pids)" ]]
     ;;
   *)
     echo "usage: $0 [run|--build-only|--debug|--logs|--telemetry|--verify|--preview-update]" >&2
