@@ -11,7 +11,7 @@ jobs:
     runs-on: xcode-27
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -108,9 +108,11 @@ jobs:
 
           SHORT_VERSION="${NEW_VERSION#v}"
           BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "short_version=$SHORT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$NEW_VERSION"
+            echo "short_version=$SHORT_VERSION"
+            echo "build_number=$BUILD_NUMBER"
+          } >> "$GITHUB_OUTPUT"
           echo "New version: $NEW_VERSION"
 
       - name: Build App Bundle
@@ -278,7 +280,7 @@ jobs:
           git push origin "${{ steps.version.outputs.version }}"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.4
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: |
